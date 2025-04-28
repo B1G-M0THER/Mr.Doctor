@@ -5,7 +5,7 @@
       <li v-for="card in cards" :key="card.id" class="card-item">
         <p><strong>Номер картки:</strong> {{ card.card_number }}</p>
         <p><strong>Статус:</strong> {{ card.status }}</p>
-        <p><strong>Термін дії:</strong> {{ card.dueDate }}</p>
+        <p><strong>Власник:</strong> {{ card.holder_name }}</p>
         <div class="actions">
           <button @click="confirmCard(card.id)">Підтвердити</button>
           <button @click="rejectCard(card.id)">Відхилити</button>

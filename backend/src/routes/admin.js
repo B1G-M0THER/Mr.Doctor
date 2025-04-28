@@ -27,9 +27,24 @@ router.get("/cards", async (req, res) => {
 
         const waitingCards = await prisma.cards.findMany({
             where: { status: Cards.waiting },
+            include: {
+                Users: {
+                    select: {
+                        name: true
+                    }
+                }},
         });
 
-        res.status(200).json(waitingCards);
+        const formattedCards = waitingCards.map(card => ({
+            id: card.id,
+            card_number: card.card_number,
+            status: card.status,
+            holder_name: card.Users.name,
+            balance: card.balance,
+            dueDate: card.dueDate,
+        }));
+
+        res.status(200).json(formattedCards);
     } catch (error) {
         console.error("Помилка отримання карток:", error);
         res.status(500).json({ error: "Помилка сервера." });
