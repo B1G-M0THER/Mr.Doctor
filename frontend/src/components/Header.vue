@@ -7,7 +7,7 @@
       <ul>
         <li><router-link to="/">Головна</router-link></li>
         <li><router-link to="/deposit">Депозити</router-link></li>
-        <li><router-link to="/open-card">Відкрити карту</router-link></li>
+        <li v-if="isLoggedIn"><router-link to="/open-card">Відкрити карту</router-link></li>
         <li><router-link to="/credit">Кредити</router-link></li>
         <li><router-link to="/about">Про нас</router-link></li>
       </ul>
