@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "esnext",                  // Целевая версия JavaScript
+    "module": "esnext",                  // Модульная система
+    "moduleResolution": "node",         // Разрешение модулей Node.js
+    "strict": true,                     // Включение строгой типизации
+    "esModuleInterop": true,            // Совместимость с CommonJS и ES модулями
+    "skipLibCheck": true,               // Пропуск проверки библиотечных типов
+    "forceConsistentCasingInFileNames": true // Однообразные имена файлов
+  },
+  "include": [
+    "src/**/*.ts",                      // Включение всех TypeScript-файлов
+    "src/**/*.js",                      // Включение всех JavaScript-файлов
+    "src/**/*.vue",                     // Включение всех Vue-компонентов
+    "types.d.ts"                        // Включение файла для определения модуля
+  ],
+  "exclude": [
+    "node_modules"                      // Исключение папки с модулями
+  ]
+}
