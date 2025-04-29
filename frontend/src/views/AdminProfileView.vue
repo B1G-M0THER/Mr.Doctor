@@ -3,9 +3,8 @@
     <h1>Адміністративна панель</h1>
     <p>Ласкаво просимо, {{ user.name }}!</p>
     <div class="actions">
-      <button @click="manageUsers">Керування користувачами </button>
       <router-link to="/admin/cards">Картки для підтвердження</router-link>
-      <button @click="viewStats">Переглянути статистику</button>
+      <router-link to="/admin/chat" class="action-link">Підтримка (Чати)</router-link>
     </div>
   </div>
 </template>
@@ -42,12 +41,6 @@ export default {
         alert("Помилка при перевірці ролі: " + (error.response?.data?.error || error.message || "Невідома помилка"));
       }
     },
-    manageUsers() {
-      this.$router.push("/admin/manage-users");
-    },
-    viewStats() {
-      this.$router.push("/admin/stats");
-    },
   },
 };
 </script>
@@ -65,5 +58,28 @@ export default {
   color: white;
   border: none;
   cursor: pointer;
+}
+.actions {
+  margin-top: 30px;
+  display: flex;
+  flex-direction: column; /* Розташувати посилання одне під одним */
+  align-items: center; /* Центрувати посилання */
+  gap: 15px; /* Відстань між посиланнями */
+}
+.action-link { /* Стилізація для посилань, щоб вони виглядали як кнопки */
+  display: inline-block;
+  padding: 10px 20px;
+  background: #42b983;
+  color: white;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+  min-width: 200px; /* Мінімальна ширина для однакового вигляду */
+  text-align: center;
+}
+.action-link:hover {
+  background-color: #369966;
 }
 </style>
