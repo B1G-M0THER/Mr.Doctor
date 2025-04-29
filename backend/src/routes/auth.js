@@ -68,7 +68,7 @@ router.post("/login", async (req, res) => {
             expiresIn: "14d",
         });
 
-        res.status(200).json({ token, role: user.role });
+        res.status(200).json({ token, role: user.role, userId: user.id });
     } catch (error) {
         res.status(500).json({ error: "Помилка сервера." });
     }
