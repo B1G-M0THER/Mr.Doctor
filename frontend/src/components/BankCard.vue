@@ -14,6 +14,9 @@
         <div class="cvc-box">
           <span class="cvc">{{ cvc }}</span>
         </div>
+        <div class="card-balance">
+          <span>Баланс:</span> {{ formattedBalance }}
+        </div>
       </div>
     </div>
   </div>
@@ -37,6 +40,10 @@ export default {
     },
     expiryDate: {
       type: String, // Default format
+    },
+    balance: { // *** НОВИЙ PROP ***
+      type: Number,
+      default: 0 // Значення за замовчуванням
     }
   },
   data() {
@@ -49,6 +56,11 @@ export default {
       const numStr = String(this.cardNumber);
       return numStr.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') || '0000 0000 0000 0000';
     },
+    formattedBalance() { // *** НОВЕ COMPUTED для форматування балансу ***
+      // Форматуємо число з двома знаками після коми
+      return this.balance.toFixed(2) + ' UAH';
+    }
+
   },
   methods: {
     flipCard() {
@@ -156,7 +168,23 @@ body {
   align-items: center;
   padding: 0; /* Remove padding to allow full-width strip */
   color: white;
+  position: relative;
   font-family: 'Rajdhani', sans-serif;
+}
+
+.card-balance {
+  position: absolute; /* Абсолютне позиціонування */
+  bottom: 20px;      /* Відступ знизу */
+  left: 25px;       /* Відступ зліва */
+  color: #cfd8dc;   /* Світло-сірий колір */
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+.card-balance span {
+  opacity: 0.8;
+  margin-right: 5px;
 }
 
 .black-strip {

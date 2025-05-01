@@ -3,6 +3,12 @@
     <div class="logo">
       <img src="../assets/logo.png" alt="Vue Logo" />
     </div>
+    <div v-if="role !== 'ADMIN' && isLoggedIn" class="profile-icon balance-icon-container" @click="toggleTopUpModal">
+      <div class="profile-icon balance-icon">
+        <img src="../assets/balance.png" alt="Поповнити баланс" class="profile-img light" />
+        <img src="../assets/balance_green.png" alt="Поповнити баланс" class="profile-img dark" />
+      </div>
+    </div>
     <nav class="nav-links">
       <ul>
         <li><router-link to="/">Головна</router-link></li>
@@ -114,6 +120,34 @@
       </div>
     </div>
 
+    <div v-if="showTopUpModal" class="modal-overlay" @click.self="toggleTopUpModal">
+      <div class="modal-content topup-modal-content">
+        <div class="close-icon" @click="toggleTopUpModal">×</div>
+        <h3>Поповнення картки</h3>
+        <form @submit.prevent="submitTopUp">
+          <div class="form-group">
+            <label for="topup-amount">Введіть суму (UAH):</label>
+            <input
+                type="number"
+                id="topup-amount"
+                v-model="topUpAmount"
+                placeholder="Наприклад, 500"
+                step="0.01"
+                min="1"
+                required
+            />
+          </div>
+          <div class="form-group">
+            <button type="submit" class="submit-button">Поповнити</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showTopUpSuccess" class="success-notification">
+      {{ successMessage }}
+    </div>
+
     <ChatWindow v-if="isLoggedIn && role !== 'ADMIN' && chatStore.isChatOpen" />
 
   </header>
@@ -149,31 +183,63 @@ export default {
     const role = ref(localStorage.getItem("role"));
     const userId = ref(localStorage.getItem("userId"));
 
+    const showTopUpModal = ref(false);
+    const topUpAmount = ref('');
+    const showTopUpSuccess = ref(false);
+    const successMessage = ref('');
+    let successTimeout = null;
+
+    // *** НОВИЙ МЕТОД: Відкрити/закрити модальне вікно поповнення ***
+    const toggleTopUpModal = () => {
+      showTopUpModal.value = !showTopUpModal.value;
+      topUpAmount.value = ''; // Очищуємо поле при відкритті/закритті
+    };
+
+    // *** НОВИЙ МЕТОД: Відправити запит на поповнення ***
+    const submitTopUp = async () => {
+      const amount = parseFloat(topUpAmount.value);
+      if (isNaN(amount) || amount <= 0) {
+        alert('Будь ласка, введіть коректну суму для поповнення.');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Помилка автентифікації. Спробуйте увійти знову.');
+          // Можливо, додати логаут або редирект
+          return;
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // Робимо POST запит на новий ендпоінт
+        const response = await axios.post('/api/cards/topup', { amount }, { headers });
+
+        // Обробка успішної відповіді
+        showTopUpModal.value = false; // Закриваємо модальне вікно
+        topUpAmount.value = ''; // Очищуємо поле
+
+        // Показуємо повідомлення про успіх
+        successMessage.value = `Вашу карту поповнено на ${amount.toFixed(2)} UAH`;
+        showTopUpSuccess.value = true;
+
+        // Очищаємо попередній таймаут, якщо він є
+        if (successTimeout) clearTimeout(successTimeout);
+        // Автоматично ховаємо повідомлення через 5 секунд
+        successTimeout = setTimeout(() => {
+          showTopUpSuccess.value = false;
+        }, 5000);
+
+      } catch (error) {
+        console.error("Помилка поповнення картки:", error);
+        alert('Помилка поповнення: ' + (error.response?.data?.error || error.message));
+      }
+    };
+
     // Функція закриття модального вікна
     const closeModal = () => {
       showRegisterModal.value = false;
     };
-
-    // Налаштування Axios Interceptor для автоматичного додавання токена
-    // Цей код має виконуватись лише один раз при старті додатку,
-    // тому краще його винести в main.js або окремий файл налаштування axios
-    // Якщо він залишається тут, переконайтесь, що він не викликається багаторазово
-    // (наприклад, при HMR під час розробки)
-    // Для прикладу залишаємо тут, але рекомендуємо винести.
-    const interceptor = axios.interceptors.request.use(
-        (config) => {
-          const token = localStorage.getItem("token");
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-          return config;
-        },
-        (error) => {
-          return Promise.reject(error);
-        }
-    );
-    // Щоб уникнути дублювання інтерсепторів при HMR, можна його видаляти перед додаванням
-    // onUnmounted(() => { axios.interceptors.request.eject(interceptor); });
 
     // Перемикання між формами логіну/реєстрації
     const switchMode = (isRegister) => {
@@ -188,10 +254,10 @@ export default {
     // Функція реєстрації
     const register = async () => {
       // Проста валідація (можна додати складнішу)
-      const nameRegex = /^[a-zA-Zа-яА-ЯіІїЇєЄ']{2,}\s[a-zA-Zа-яА-ЯіІїЇєЄ']{3,}$/u; // Дозволяє кирилицю та апостроф
+      const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u; // Дозволяє кирилицю та апостроф
       if (!nameRegex.test(name.value)) {
         alert(
-            "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери)."
+            "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери) латиницею."
         );
         return;
       }
@@ -250,7 +316,6 @@ export default {
           console.warn("userId not found in login response!");
           // Можливо, потрібно отримати профіль окремо, щоб дізнатись ID?
         }
-
 
         // Оновлюємо реактивні змінні стану
         isLoggedIn.value = true;
@@ -315,6 +380,12 @@ export default {
       logout,
       chatStore, // Повертаємо екземпляр стору для доступу до стану (isChatOpen, hasUnreadMessages)
       toggleChatWindow, // Повертаємо функцію для кліку на іконку чату
+      showTopUpModal,    // Для v-if модального вікна поповнення
+      topUpAmount,       // Для v-model інпуту суми
+      toggleTopUpModal,  // Для @click іконки балансу
+      submitTopUp,       // Для @click кнопки "Поповнити"
+      showTopUpSuccess,  // Для v-if повідомлення про успіх
+      successMessage,    // Для тексту повідомлення
     };
   },
 };
@@ -672,6 +743,73 @@ export default {
 }
 :deep(.vti__dropdown-item.highlighted) { /* Вибрана країна */
   background-color: #555 !important;
+}
+
+/* Стилі для іконки балансу (можна об'єднати з .profile-icon, якщо ідентичні) */
+.balance-icon-container {
+  cursor: pointer;
+}
+.balance-icon .profile-img {
+  /* ... стилі аналогічні до .profile-img в .profile-icon */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 40%;
+  transition: opacity 0.3s ease-in-out;
+}
+.balance-icon .profile-img.dark {
+  opacity: 0;
+}
+.balance-icon-container:hover .balance-icon .profile-img.light {
+  opacity: 0;
+}
+.balance-icon-container:hover .balance-icon .profile-img.dark {
+  opacity: 1;
+}
+
+/* Стилі для модального вікна поповнення (можна частково успадкувати від .modal-content) */
+.topup-modal-content {
+  /* Можна додати специфічні стилі, якщо потрібно відрізняти від вікна логіну */
+  max-width: 350px; /* Трохи менше */
+}
+.topup-modal-content h3 {
+  color: #42b983;
+  margin-bottom: 25px;
+}
+
+/* *** НОВІ СТИЛІ для повідомлення про успіх *** */
+.success-notification {
+  position: fixed; /* Фіксоване позиціонування */
+  bottom: 20px;     /* Відступ знизу */
+  right: 20px;      /* Відступ справа */
+  background-color: #42b983; /* Зелений фон */
+  color: #ffffff;         /* Білий текст */
+  padding: 15px 25px;    /* Внутрішні відступи */
+  border-radius: 8px;     /* Закруглені кути */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Тінь */
+  z-index: 1100;         /* Вище за модальні вікна */
+  font-size: 14px;
+  font-weight: bold;
+  /* Анімація появи/зникнення */
+  animation: slideInFadeOut 5s forwards ease-in-out;
+  /* forwards - залишає стан останнього кадру (прозорість 0) */
+}
+
+/* Анімація для повідомлення */
+@keyframes slideInFadeOut {
+  0% {
+    transform: translateX(100%); /* Починаємо за межами екрану справа */
+    opacity: 0;
+  }
+  10%, 90% { /* Залишаємось видимими більшу частину часу */
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%); /* Зникаємо вправо */
+    opacity: 0;
+  }
 }
 
 </style>

@@ -21,6 +21,7 @@
           :card-holder-name="user.name"
           :cvc="activeCard.cvc"
           :expiry-date="activeCard.dueDate"
+          :balance="activeCard.balance"
       />
     </div>
     <div v-else>
@@ -32,7 +33,6 @@
 
 <script>
 import axios from 'axios';
-// Import the BankCard component
 import BankCard from '../components/BankCard.vue'; // Adjust the path if necessary
 
 export default {
@@ -89,9 +89,6 @@ export default {
         if (!token) return;
 
         const headers = { Authorization: `Bearer ${token}` };
-        // --- IMPORTANT: Replace with your ACTUAL API endpoint ---
-        // This endpoint should return the user's card if it exists and is active
-        // It should join Cards and Users tables to get the name or fetch user separately
         const response = await axios.get('/api/cards/mycard', { headers }); // <<< --- YOUR API ENDPOINT HERE
 
         // Check if the response contains card data and if it's active
@@ -107,8 +104,6 @@ export default {
           this.activeCard = null; // Set to null if no active card found
         }
       } catch (error) {
-        // It's common for this request to fail if the user has no card (e.g., 404 Not Found)
-        // Only log error if it's not a 404 or expected "no card" scenario
         if (error.response && error.response.status !== 404) {
           console.error("Помилка завантаження даних картки:", error);
           // alert('Не вдалося завантажити дані картки.');
@@ -121,10 +116,6 @@ export default {
         this.isLoadingCard = false;
       }
     },
-    // Optional: Method to navigate to the open card page
-    // goToOpenCard() {
-    //   this.$router.push('/open-card'); // Adjust route as needed
-    // }
   }
 };
 </script>

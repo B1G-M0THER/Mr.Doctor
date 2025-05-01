@@ -3,8 +3,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import bodyParser from "body-parser";
 import userRoutes from "./routes/auth.js";
-import cardRoutes from "./routes/cards.js";
 import authRoutes from "./routes/auth.js";
+import cardRoutes from "./routes/cards.js";
 import adminRoutes from "./routes/admin.js";
 import http from "http"; // Додано
 import { Server } from "socket.io"; // Додано
@@ -27,12 +27,11 @@ const io = new Server(server, {
 // Ініціалізація обробників Socket.IO
 initializeSocket(io);
 
-
 app.use(cors());
 app.use(bodyParser.json());
 app.use("/api", userRoutes);
-app.use("/api/cards", cardRoutes);
 app.use("/auth", authRoutes);
+app.use("/api/cards", cardRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {

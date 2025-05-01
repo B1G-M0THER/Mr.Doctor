@@ -12,31 +12,27 @@ export default function initializeSocket(io) {
 
     // Middleware для автентифікації кожного нового сокет-з'єднання
     io.use(async (socket, next) => {
-        // Отримуємо токен, переданий клієнтом при підключенні
         const token = socket.handshake.auth.token;
         if (!token) {
             console.error('[Socket Auth] Error: Token not provided.');
             return next(new Error("Authentication error: Token not provided"));
         }
         try {
-            // Перевіряємо токен
             const decoded = jwt.verify(token, SECRET_KEY);
-            // Додаємо дані користувача до об'єкта сокета для подальшого використання
             socket.userId = decoded.id;
             socket.userRole = decoded.role;
             console.log(`[Socket Auth] Success: User ${decoded.id}, Role ${decoded.role}`);
-            next(); // Дозволяємо підключення
+            next();
         } catch (err) {
             console.error('[Socket Auth] Error: Invalid token.', err.message);
-            next(new Error("Authentication error: Invalid token")); // Відхиляємо підключення
+            next(new Error("Authentication error: Invalid token"));
         }
     });
 
-    // Обробник події 'connection' - спрацьовує, коли клієнт успішно пройшов автентифікацію
+    // Обробник події 'connection'
     io.on('connection', (socket) => {
         console.log(`[Connection] User connected: ${socket.userId} with role ${socket.userRole}, socket ID: ${socket.id}`);
 
-        // Зберігаємо ID сокета для підключеного користувача або адміна
         if (socket.userRole === 'ADMIN') {
             connectedAdmins.set(socket.userId, socket.id);
             console.log('[Connection] Current connected admins:', Array.from(connectedAdmins.keys()));
@@ -46,10 +42,11 @@ export default function initializeSocket(io) {
         }
 
         // --- Обробники подій від клієнта ---
-        if (socket.userRole === 'ADMIN') { // Переконуємось, що це адмін
+        if (socket.userRole === 'ADMIN') {
+            // Обробник adminDeleteChat
             socket.on('adminDeleteChat', async (data) => {
                 const { userIdToDelete } = data || {};
-                const adminId = socket.userId; // ID адміна, який робить запит
+                const adminId = socket.userId;
 
                 console.log(`[adminDeleteChat] Request received: adminId=${adminId}, userIdToDelete=${userIdToDelete}`);
 
@@ -61,9 +58,6 @@ export default function initializeSocket(io) {
                 try {
                     console.log(`[adminDeleteChat] Attempting to delete messages between any admin and user ${userIdToDelete}`);
 
-                    // Видаляємо всі повідомлення, де:
-                    // 1. Відправник - користувач, Отримувач - будь-який адмін
-                    // 2. Відправник - будь-який адмін, Отримувач - користувач
                     const deleteResult = await prisma.chatMessage.deleteMany({
                         where: {
                             OR: [
@@ -74,16 +68,11 @@ export default function initializeSocket(io) {
                     });
 
                     console.log(`[adminDeleteChat] Deleted ${deleteResult.count} messages for user ${userIdToDelete}.`);
-
-                    // Надсилаємо підтвердження адміну, який зробив запит
                     socket.emit('chatDeleted', { userId: userIdToDelete, count: deleteResult.count });
 
-                    // Опціонально: сповістити інших адмінів про видалення чату,
-                    // щоб вони могли оновити свої списки, якщо потрібно
-                    const allAdminSocketIds = Array.from(connectedAdmins.values()).filter(id => id !== socket.id); // Всі, крім поточного
+                    const allAdminSocketIds = Array.from(connectedAdmins.values()).filter(id => id !== socket.id);
                     if (allAdminSocketIds.length > 0) {
                         io.to(allAdminSocketIds).emit('chatListUpdate', { message: `Chat with user ${userIdToDelete} deleted by admin ${adminId}.` });
-                        // Фронтенд адмінів може слухати 'chatListUpdate' і перезавантажувати свій список
                     }
 
                 } catch (error) {
@@ -91,136 +80,157 @@ export default function initializeSocket(io) {
                     socket.emit('chatError', { message: `Failed to delete chat history for user ${userIdToDelete}.` });
                 }
             });
-        }
 
-        /**
-         * Обробник надсилання повідомлення
-         * data: { receiverId: number|null, content: string }
-         * receiverId - ID користувача-отримувача (якщо відправник - адмін)
-         * receiverId - Може бути 0 або ігноруватися (якщо відправник - клієнт)
-         */
+            // *** ОНОВЛЕНИЙ ОБРОБНИК adminGetChatList ***
+            socket.on('adminGetChatList', async (data) => {
+                const searchTerm = data?.searchTerm || '';
+                const adminId = socket.userId;
+                console.log(`[adminGetChatList] Admin ${adminId} requested chat list. SearchTerm: "${searchTerm}"`);
+
+                try {
+                    let whereCondition = {
+                        role: { not: 'ADMIN' },
+                        OR: [
+                            { SentMessages: { some: { Receiver: { role: 'ADMIN' } } } },
+                            { ReceivedMessages: { some: { Sender: { role: 'ADMIN' } } } }
+                        ]
+                    };
+
+                    if (searchTerm) {
+                        whereCondition.AND = [
+                            {
+                                OR: [
+                                    // *** ВИДАЛЕНО: mode: 'insensitive' ***
+                                    { name: { contains: searchTerm } },
+                                    // *** ВИДАЛЕНО: mode: 'insensitive' ***
+                                    { email: { contains: searchTerm } }
+                                ]
+                            }
+                        ];
+                    }
+
+                    const usersList = await prisma.users.findMany({
+                        where: whereCondition,
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        },
+                        orderBy: {
+                            name: 'asc'
+                        }
+                    });
+
+                    console.log(`[adminGetChatList] Found ${usersList.length} users matching criteria.`);
+                    socket.emit('chatList', usersList);
+
+                } catch (error) {
+                    console.error("[adminGetChatList] Error fetching chat list:", error);
+                    // Перевіряємо, чи це помилка валідації запиту (якщо mode було єдиною проблемою)
+                    if (error.code === 'P2009' || error.message.includes("Unknown argument `mode`")) {
+                        // Це стара помилка, яка мала б зникнути. Логуємо детальніше.
+                        console.error("Validation error still present?", error);
+                        socket.emit('chatError', { message: 'Query validation error persists.' });
+                    } else {
+                        socket.emit('chatError', { message: 'Failed to fetch chat list' });
+                    }
+                }
+            }); // Кінець обробника adminGetChatList
+        } // Кінець блоку if (socket.userRole === 'ADMIN')
+        // Обробник sendMessage
         socket.on('sendMessage', async (data) => {
             const senderId = socket.userId;
             const senderRole = socket.userRole;
-            let { receiverId, content } = data || {}; // Безпечне отримання даних
+            let { receiverId, content } = data || {};
 
             console.log(`[sendMessage] Received: senderId=${senderId}, senderRole=${senderRole}, intendedReceiverId=${receiverId}, content="${content}"`);
 
-            // Перевірка вхідних даних
             if (!content || content.trim() === "") {
                 console.log('[sendMessage] Error: Empty content.');
                 socket.emit('chatError', { message: 'Cannot send empty message.' });
                 return;
             }
 
-            let actualReceiverId; // Реальний ID отримувача для збереження в БД
-            let targetSocketId = null; // ID сокету для доставки в реальному часі
+            let actualReceiverId;
+            let targetSocketId = null;
 
             try {
-                // --- Логіка визначення реального отримувача (actualReceiverId) ---
                 if (senderRole === 'ADMIN') {
-                    // Якщо адмін надсилає, receiverId має бути ID клієнта
                     if (!receiverId || typeof receiverId !== 'number' || receiverId <= 0) {
                         console.error('[sendMessage] Error: Admin must specify a valid receiver user ID.');
                         return socket.emit('chatError', { message: 'Admin must specify recipient user ID.' });
                     }
                     actualReceiverId = receiverId;
-                    targetSocketId = connectedUsers.get(actualReceiverId); // Шукаємо підключеного клієнта
+                    targetSocketId = connectedUsers.get(actualReceiverId);
                     console.log(`[sendMessage] Admin ${senderId} sending to User ${actualReceiverId}. Target socket: ${targetSocketId}`);
-
                 } else {
-                    // Якщо клієнт надсилає адміну
                     const onlineAdminIds = Array.from(connectedAdmins.keys());
                     if (onlineAdminIds.length > 0) {
-                        // Вибираємо першого доступного онлайн адміна
-                        actualReceiverId = onlineAdminIds[0]; // Можна реалізувати іншу логіку вибору (round-robin, etc.)
+                        actualReceiverId = onlineAdminIds[0];
                         targetSocketId = connectedAdmins.get(actualReceiverId);
                         console.log(`[sendMessage] Client ${senderId} sending to first online Admin ${actualReceiverId}. Target socket: ${targetSocketId}`);
                     } else {
-                        // Немає адмінів онлайн, шукаємо будь-якого адміна в базі даних
                         console.log(`[sendMessage] No admins online. Searching DB for any admin...`);
                         const anyAdmin = await prisma.users.findFirst({
                             where: { role: 'ADMIN' },
-                            select: { id: true } // Вибираємо тільки ID
+                            select: { id: true }
                         });
-
                         if (anyAdmin) {
                             actualReceiverId = anyAdmin.id;
-                            targetSocketId = null; // Адмін офлайн
+                            targetSocketId = null;
                             console.log(`[sendMessage] Found admin in DB (offline): ${actualReceiverId}. Message will be saved.`);
                         } else {
-                            // Якщо адмінів взагалі немає в системі
                             console.error('[sendMessage] Error: No Admin user found in the database.');
                             return socket.emit('chatError', { message: 'Support is currently unavailable. No admin accounts found.' });
                         }
                     }
                 }
 
-                // Перевірка, чи вдалося визначити ID отримувача
                 if (typeof actualReceiverId !== 'number' || actualReceiverId <= 0) {
                     console.error('[sendMessage] Error: Could not determine actualReceiverId.');
                     return socket.emit('chatError', { message: 'Failed to determine message recipient.' });
                 }
 
-                // --- Збереження повідомлення в БД ---
-                const messageData = {
-                    senderId: senderId,
-                    receiverId: actualReceiverId, // Завжди ID конкретного адміна або клієнта
-                    content: content, // TODO: Розглянути санітизацію HTML/скриптів
-                };
+                const messageData = { senderId, receiverId: actualReceiverId, content };
                 console.log('[sendMessage] Attempting to save message with data:', messageData);
 
                 const message = await prisma.chatMessage.create({
                     data: messageData,
                     include: {
                         Sender: { select: { id: true, name: true, role: true } },
-                        // Опціонально: додати дані отримувача, якщо потрібно
                         Receiver: { select: { id: true, name: true, role: true } }
                     }
                 });
                 console.log('[sendMessage] Message saved successfully to DB. ID:', message.id);
 
-                // --- Надсилання повідомлення та сповіщень ---
                 if (targetSocketId) {
-                    // Надсилаємо 'receiveMessage' конкретному онлайн отримувачу (адміну або клієнту)
                     console.log(`[sendMessage] Emitting 'receiveMessage' to target socket ${targetSocketId}`);
                     io.to(targetSocketId).emit('receiveMessage', message);
 
-                    // Якщо відправляв клієнт, сповістимо ВСІХ онлайн адмінів про активність чату
-                    if(senderRole !== 'ADMIN') {
+                    if (senderRole !== 'ADMIN') {
                         const allAdminSocketIds = Array.from(connectedAdmins.values());
-                        if(allAdminSocketIds.length > 0) {
+                        if (allAdminSocketIds.length > 0) {
                             console.log(`[sendMessage] Emitting 'newUserMessage' for user ${senderId} to all admin sockets: ${allAdminSocketIds.join(',')}`);
-                            // Надсилаємо ID користувача та його ім'я, щоб адміни могли оновити список
                             io.to(allAdminSocketIds).emit('newUserMessage', { userId: senderId, userName: message.Sender.name });
                         }
                     }
                 } else {
-                    // Якщо отримувач офлайн
                     console.log(`[sendMessage] Target user/admin ${actualReceiverId} is not connected. Message saved only.`);
-                    // TODO: Можна реалізувати механізм сповіщення офлайн користувачів/адмінів
                 }
 
-                // Надсилаємо підтвердження ('messageSent') назад відправнику
                 socket.emit('messageSent', message);
                 console.log(`[sendMessage] Emitted 'messageSent' confirmation back to sender socket ${socket.id}`);
 
             } catch (error) {
-                // Обробка будь-яких помилок під час процесу
                 console.error("[sendMessage] CRITICAL ERROR:", error);
                 socket.emit('chatError', { message: 'Failed to process message on server. Check server logs for details.' });
             }
         });
 
-        /**
-         * Обробник запиту на завантаження історії чату
-         * data: { userId?: number }
-         * userId - ID користувача, чат з яким хоче завантажити адмін.
-         * Якщо запит від клієнта, userId може бути відсутнім або 0 (не використовується в новій логіці).
-         */
+        // Обробник loadHistory
         socket.on('loadHistory', async (data) => {
-            const { userId } = data || {}; // ID іншого учасника чату (актуально для адміна)
-            const currentUserId = socket.userId; // ID того, хто запитує історію
+            const { userId } = data || {};
+            const currentUserId = socket.userId;
             const currentUserRole = socket.userRole;
 
             console.log(`[loadHistory] Request received: requesterId=${currentUserId}, requesterRole=${currentUserRole}, targetUserId=${userId}`);
@@ -228,113 +238,36 @@ export default function initializeSocket(io) {
             try {
                 let messages;
                 if (currentUserRole === 'ADMIN') {
-                    // --- Адмін завантажує історію з конкретним клієнтом ---
                     if (!userId || typeof userId !== 'number' || userId <= 0) {
                         console.error("[loadHistory] Admin requested history without a valid target userId.");
                         return socket.emit('chatError', { message: 'Please select a user chat to load history.' });
                     }
                     console.log(`[loadHistory] Admin ${currentUserId} loading chat history with user ${userId}`);
                     messages = await prisma.chatMessage.findMany({
-                        where: {
-                            // АБО (Повідомлення від Адміна до Клієнта) АБО (Повідомлення від Клієнта до Адміна)
-                            OR: [
-                                { senderId: currentUserId, receiverId: userId },
-                                { senderId: userId, receiverId: currentUserId }
-                            ]
-                        },
+                        where: { OR: [ { senderId: currentUserId, receiverId: userId }, { senderId: userId, receiverId: currentUserId } ] },
                         orderBy: { createdAt: 'asc' },
-                        include: { // Включаємо дані відправника та отримувача
-                            Sender: { select: { id: true, name: true, role: true } },
-                            Receiver: { select: { id: true, name: true, role: true } }
-                        }
+                        include: { Sender: { select: { id: true, name: true, role: true } }, Receiver: { select: { id: true, name: true, role: true } } }
                     });
                 } else {
-                    // --- Клієнт завантажує свою історію з адмінами ---
                     console.log(`[loadHistory] Client ${currentUserId} loading chat history with admins`);
                     messages = await prisma.chatMessage.findMany({
-                        where: {
-                            OR: [
-                                // Повідомлення від Клієнта (мене) до будь-якого Адміна
-                                { senderId: currentUserId, Receiver: { role: 'ADMIN' } },
-                                // Повідомлення від будь-якого Адміна до Клієнта (мене)
-                                { receiverId: currentUserId, Sender: { role: 'ADMIN' } }
-                            ]
-                        },
+                        where: { OR: [ { senderId: currentUserId, Receiver: { role: 'ADMIN' } }, { receiverId: currentUserId, Sender: { role: 'ADMIN' } } ] },
                         orderBy: { createdAt: 'asc' },
-                        include: {
-                            Sender: { select: { id: true, name: true, role: true } },
-                            Receiver: { select: { id: true, name: true, role: true } }
-                        }
+                        include: { Sender: { select: { id: true, name: true, role: true } }, Receiver: { select: { id: true, name: true, role: true } } }
                     });
                 }
                 console.log(`[loadHistory] Found ${messages.length} messages.`);
-                socket.emit('chatHistory', messages); // Надсилаємо історію назад клієнту
+                socket.emit('chatHistory', messages);
             } catch (error) {
                 console.error("[loadHistory] Error loading history:", error);
                 socket.emit('chatError', { message: 'Failed to load chat history' });
             }
         });
 
-        /**
-         * Обробник запиту списку чатів (тільки для Адмінів)
-         * data: { searchTerm?: string }
-         */
-        if (socket.userRole === 'ADMIN') {
-            socket.on('adminGetChatList', async (data) => {
-                const { searchTerm } = data || {};
-                const adminId = socket.userId;
-                console.log(`[adminGetChatList] Admin ${adminId} requested chat list. SearchTerm: "${searchTerm}"`);
-                try {
-                    // Знаходимо всіх користувачів (не адмінів), які або писали будь-якому адміну,
-                    // або отримували повідомлення від будь-якого адміна.
-                    // Потім фільтруємо за searchTerm.
-                    // Цей запит може бути складним, спробуємо знайти користувачів,
-                    // які писали будь-якому адміну.
-                    const usersList = await prisma.users.findMany({
-                        where: {
-                            role: { not: 'ADMIN' }, // Виключаємо адмінів зі списку
-                            // Перевіряємо, чи існує хоча б одне повідомлення, де цей користувач є відправником,
-                            // а отримувач - будь-хто з роллю ADMIN
-                            SentMessages: {
-                                some: {
-                                    Receiver: { role: 'ADMIN' }
-                                }
-                            },
-                            // Додаємо фільтр пошуку, якщо searchTerm надано
-                            ...(searchTerm && {
-                                OR: [
-                                    { name: { contains: searchTerm, mode: 'insensitive' } },
-                                    { email: { contains: searchTerm, mode: 'insensitive' } }
-                                ]
-                            })
-                        },
-                        select: { // Вибираємо тільки потрібні поля
-                            id: true,
-                            name: true,
-                            email: true
-                        },
-                        // TODO: Додати сортування за останнім повідомленням
-                    });
 
-                    console.log(`[adminGetChatList] Found ${usersList.length} users who wrote to admins.`);
-
-                    // TODO: Додати логіку для отримання статусу непрочитаних повідомлень для кожного чату
-
-                    socket.emit('chatList', usersList); // Надсилаємо список користувачів адміну
-                } catch (error) {
-                    console.error("[adminGetChatList] Error fetching chat list:", error);
-                    socket.emit('chatError', { message: 'Failed to fetch chat list' });
-                }
-            });
-        }
-
-
-        /**
-         * Обробка відключення клієнта
-         */
+        // Обробка відключення клієнта
         socket.on('disconnect', (reason) => {
             console.log(`[Disconnect] User disconnected: ${socket.userId}. Reason: ${reason}`);
-            // Видаляємо користувача або адміна зі списків підключених
             if (socket.userRole === 'ADMIN') {
                 connectedAdmins.delete(socket.userId);
                 console.log('[Disconnect] Current connected admins:', Array.from(connectedAdmins.keys()));
