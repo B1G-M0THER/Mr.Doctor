@@ -5,18 +5,28 @@
       <button class="close-btn" @click="closeChat">×</button>
     </div>
     <div class="chat-messages" ref="messageContainer">
-      <div v-for="msg in messages" :key="msg.id" class="message" :class="{ 'my-message': isMyMessage(msg.senderId) }">
-        <span class="sender-name">
-            {{ msg.Sender?.role === 'ADMIN' ? 'ADMIN' : (isMyMessage(msg.senderId) ? 'Я' : msg.Sender?.name || 'Підтримка') }}
-        </span>
-        <p class="message-content">{{ msg.content }}</p>
-        <span class="timestamp">{{ formatTimestamp(msg.createdAt) }}</span>
+      <template v-for="(msg, index) in messages" :key="msg.id">
+        <div
+            v-if="isNewDay(msg.createdAt, messages[index - 1]?.createdAt)"
+            class="date-separator"
+        >
+          {{ formatDateSeparator(msg.createdAt) }}
+        </div>
+        <div class="message" :class="{ 'my-message': isMyMessage(msg.senderId) }">
+            <span class="sender-name">
+                {{ msg.Sender?.role === 'ADMIN' ? 'ADMIN' : (isMyMessage(msg.senderId) ? 'Я' : msg.Sender?.name || 'Підтримка') }}
+            </span>
+          <p class="message-content">{{ msg.content }}</p>
+          <span class="timestamp">{{ formatTimestamp(msg.createdAt) }}</span>
+        </div>
+      </template>
+      <div v-if="messages.length === 0" class="no-messages-info">
+        Повідомлень ще немає.
       </div>
     </div>
     <div class="chat-input">
       <input type="text" v-model="newMessage" @keyup.enter="sendMessageHandler" placeholder="Введіть ваше повідомлення..." />
-      <button @click="sendMessageHandler">Надіслати</button>
-    </div>
+      <button @click="sendMessageHandler" :disabled="!newMessage.trim()">Надіслати</button> </div>
   </div>
 </template>
 
@@ -38,16 +48,12 @@ const messages = computed(() => chatStore.currentChatMessages);
 const isMyMessage = (senderId) => {
   // Отримуємо поточне значення computed property
   const currentId = currentUserId.value;
-
   // Виводимо значення та їх типи в консоль
   console.log(`isMyMessage Check: senderId=${senderId} (type: ${typeof senderId}), currentUserId=${currentId} (type: ${typeof currentId})`);
-
   // Виконуємо порівняння
   const result = senderId === currentId;
-
   // Виводимо результат порівняння
   console.log(`Comparison Result: ${result}`);
-
   return result;
 };
 
@@ -60,8 +66,6 @@ const closeChat = () => {
 const sendMessageHandler = () => {
   // Перевіряємо, чи повідомлення не порожнє (після видалення пробілів)
   if (newMessage.value.trim()) {
-    // Клієнт завжди надсилає повідомлення до групи адмінів (бекенд визначить конкретного)
-    // Передаємо 0 як умовний ID отримувача-адміна
     chatStore.sendMessage(0, newMessage.value);
     newMessage.value = ''; // Очищуємо поле вводу після надсилання
   }
@@ -75,7 +79,39 @@ const formatTimestamp = (timestamp) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// --- Логіка для автоматичної прокрутки чату донизу ---
+// *** НОВА ФУНКЦІЯ: Форматування дати для роздільника ***
+const formatDateSeparator = (timestamp) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  // Формат DD.MM.YYYY
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Місяці починаються з 0
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
+};
+
+// *** НОВА ФУНКЦІЯ: Перевірка, чи це новий день ***
+const isNewDay = (currentTimestamp, previousTimestamp) => {
+  if (!previousTimestamp) {
+    return true; // Завжди показувати дату перед першим повідомленням
+  }
+  // Перетворюємо на Date об'єкти, якщо це рядки
+  const currentDate = new Date(currentTimestamp);
+  const previousDate = new Date(previousTimestamp);
+
+  // Перевіряємо, чи коректні дати
+  if (isNaN(currentDate.getTime()) || isNaN(previousDate.getTime())) {
+    console.error("Invalid date detected in isNewDay:", currentTimestamp, previousTimestamp);
+    return false; // Не показувати роздільник, якщо дата некоректна
+  }
+
+  // Порівнюємо рік, місяць і день
+  return (
+      currentDate.getFullYear() !== previousDate.getFullYear() ||
+      currentDate.getMonth() !== previousDate.getMonth() ||
+      currentDate.getDate() !== previousDate.getDate()
+  );
+};
 
 // Функція для прокрутки контейнера повідомлень до останнього повідомлення
 const scrollToBottom = async () => {
@@ -104,6 +140,28 @@ onMounted(() => {
 </script>
 
 <style scoped>
+
+/* *** НОВІ СТИЛІ для роздільника дати *** */
+.date-separator {
+  text-align: center; /* Вирівнювання по центру */
+  color: #a0a0a0;      /* Сірий колір тексту */
+  font-size: 0.85em;   /* Трохи менший шрифт */
+  margin: 15px 0 10px 0; /* Відступи зверху/знизу */
+  background-color: #2a2f33; /* Фон для візуального розділення */
+  padding: 3px 10px;  /* Невеликі внутрішні відступи */
+  border-radius: 10px; /* Закруглені кути */
+  align-self: center; /* Розміщуємо по центру горизонтально */
+  max-width: fit-content; /* Ширина за вмістом */
+}
+
+/* Стилі для повідомлення про відсутність повідомлень */
+.no-messages-info {
+  text-align: center;
+  color: #777;
+  margin-top: 20px;
+  font-style: italic;
+}
+
 .chat-window {
   position: fixed;
   bottom: 20px;

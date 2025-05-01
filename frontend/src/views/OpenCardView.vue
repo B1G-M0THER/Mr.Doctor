@@ -18,7 +18,7 @@
     <form @submit.prevent="submitForm" class="form">
       <p v-if="user.name"><strong>Ім'я:</strong> {{ user.name }}</p>
       <p v-if="user.email"><strong>Email:</strong> {{ user.email }}</p>
-      <input v-model="pin" type="password" placeholder="Придумайте 4-значний PIN" required maxlength="4" class="input" />
+      <input v-model="pin" type="password" placeholder="Придумайте 4-значний PIN" required maxlength="4" minlength="4" class="input" />
       <button type="submit" :disabled="loading" class="button">
         {{ loading ? "Обробка..." : "Підтвердити" }}
       </button>

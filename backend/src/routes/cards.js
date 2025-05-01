@@ -1,9 +1,12 @@
 import express from 'express';
 import prisma from '../config/prisma.js'; // Ваш Prisma клієнт
 import jwt from 'jsonwebtoken'; // Потрібен для верифікації токена
+import { createCard, topUpCardBalance } from "../controllers/cardController.js";
 
 const router = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY; // Потрібен для верифікації
+
+router.post("/create", createCard);
 
 // Отримати активну картку поточного користувача
 router.get('/mycard', async (req, res) => { // Забираємо authenticateToken з параметрів
@@ -32,7 +35,7 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
 
         } catch (error) {
             // Обробка помилок верифікації токена
-            console.error("Token verification error in /mycard:", error.message);
+            console.error("Token verification error in /create:", error.message);
             if (error instanceof jwt.TokenExpiredError) {
                 return res.status(401).json({ error: 'Неавторизований доступ: термін дії токена вийшов.' });
             }
@@ -64,6 +67,7 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
                 cvc: true,
                 dueDate: true,
                 status: true,
+                balance: true,
             }
         });
 
@@ -83,6 +87,6 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
     }
 });
 
-// Додайте інші маршрути тут...
+router.post('/topup', topUpCardBalance);
 
 export default router;
