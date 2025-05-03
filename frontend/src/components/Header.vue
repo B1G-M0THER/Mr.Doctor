@@ -280,11 +280,11 @@ export default {
         const response = await axios.post("/api/register", {
           name: name.value,
           email: email.value,
-          phone_number: phone.value, // Переконайтесь, що поле називається phone_number на бекенді
+          phone_number: phone.value,
           password: password.value,
         });
-        alert(response.data.message || "Реєстрація успішна! Тепер ви можете увійти."); // Повідомлення з бекенду або стандартне
-        switchMode(false); // Перемкнути на логін після успішної реєстрації
+        alert(response.data.message || "Реєстрація успішна! Тепер ви можете увійти.");
+        switchMode(false);
       } catch (error) {
         alert("Помилка реєстрації: " + (error.response?.data?.error || error.message));
       }
@@ -297,34 +297,29 @@ export default {
         return;
       }
       try {
-        // ВИПРАВЛЕНО: Використовуємо правильний URL /auth/login
         const response = await axios.post("/api/login", {
           email: email.value,
           password: password.value,
         });
         
         console.log("Login Response Data:", response.data);
-        // Зберігаємо дані в localStorage
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("role", response.data.role);
-        // Переконайтесь, що бекенд повертає userId!
+
         if (response.data.userId) {
           localStorage.setItem("userId", response.data.userId);
-          userId.value = response.data.userId; // Оновлюємо реактивну змінну
+          userId.value = response.data.userId;
           console.log(`Stored userId in localStorage: ${response.data.userId}`);
         } else {
           console.warn("userId not found in login response!");
-          // Можливо, потрібно отримати профіль окремо, щоб дізнатись ID?
         }
 
-        // Оновлюємо реактивні змінні стану
         isLoggedIn.value = true;
         role.value = response.data.role;
 
-        // Підключаємо сокет після успішного логіну
         chatStore.connectSocket();
         chatStore.setupListeners();
-        closeModal(); // Закриваємо модальне вікно
+        closeModal();
       } catch (error) {
         alert("Помилка входу: " + (error.response?.data?.error || error.message));
       }
@@ -335,17 +330,14 @@ export default {
       // Відключаємо сокет
       chatStore.disconnectSocket();
 
-      // Очищуємо localStorage
       localStorage.removeItem("token");
       localStorage.removeItem("role");
       localStorage.removeItem("userId");
 
-      // Оновлюємо реактивні змінні стану
       isLoggedIn.value = false;
       role.value = "";
       userId.value = null;
 
-      // ВИПРАВЛЕНО: Використовуємо router.push для навігації без перезавантаження
       router.push('/');
     };
 
@@ -354,7 +346,6 @@ export default {
       chatStore.toggleChat();
     };
 
-    // Підключаємо сокет при завантаженні сторінки, якщо користувач вже залогінений
     onMounted(() => {
       if (isLoggedIn.value) {
         chatStore.connectSocket();
@@ -372,26 +363,27 @@ export default {
       password,
       role,
       isLoggedIn,
-      userId, // Повертаємо userId, хоч він прямо не використовується в шаблоні
+      userId,
       closeModal,
       switchMode,
       register,
       login,
       logout,
-      chatStore, // Повертаємо екземпляр стору для доступу до стану (isChatOpen, hasUnreadMessages)
-      toggleChatWindow, // Повертаємо функцію для кліку на іконку чату
-      showTopUpModal,    // Для v-if модального вікна поповнення
-      topUpAmount,       // Для v-model інпуту суми
-      toggleTopUpModal,  // Для @click іконки балансу
-      submitTopUp,       // Для @click кнопки "Поповнити"
-      showTopUpSuccess,  // Для v-if повідомлення про успіх
-      successMessage,    // Для тексту повідомлення
+      chatStore,
+      toggleChatWindow,
+      showTopUpModal,
+      topUpAmount,
+      toggleTopUpModal,
+      submitTopUp,
+      showTopUpSuccess,
+      successMessage,
     };
   },
 };
 </script>
 
 <style scoped>
+
 /* Основний стиль */
 .navbar {
   display: flex;
@@ -400,17 +392,17 @@ export default {
   background-color: #1A1A1A;
   color: #ffffff;
   padding: 10px 20px;
-  height: 60px; /* Висота хедера */
+  height: 60px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border-bottom: 1px solid #2a2f33;
-  position: relative; /* Для позиціонування ChatWindow */
-  z-index: 1000; /* Вище за інший контент */
+  position: relative;
+  z-index: 1000;
 }
 
 .profile-container {
   display: flex;
-  align-items: center; /* Вертикальне вирівнювання іконок і кнопки */
-  gap: 15px; /* Відстань між елементами */
+  align-items: center;
+  gap: 15px;
 }
 
 /* Стилізація кнопки Вийти */
@@ -418,13 +410,12 @@ export default {
   background: none;
   border: none;
   color: #ffffff;
-  /* font-size: 12px; */ /* Зробимо трохи більшим */
   font-size: 14px;
   font-weight: bold;
   cursor: pointer;
   transition: color 0.3s ease;
   position: relative;
-  padding: 5px 0; /* Додамо трохи вертикального падінгу */
+  padding: 5px 0;
 }
 
 .logout-button::after {
@@ -456,6 +447,15 @@ export default {
   cursor: pointer; /* Додаємо курсор для іконок-посилань */
 }
 
+.profile-icon .balance-icon-container{
+  width: 20px;
+  height: 20px;
+}
+.profile-icon .balance-icon{
+  width: 20px;
+  height: 20px;
+}
+
 .profile-img {
   position: absolute;
   top: 0;
@@ -480,6 +480,8 @@ export default {
 /* Контейнер іконки чату для позиціонування індикатора */
 .chat-icon-container {
   position: relative;
+  width: 40px;
+  height: 40px;
   cursor: pointer; /* Курсор для іконки чату */
 }
 
@@ -534,7 +536,7 @@ export default {
   bottom: 0; /* Підкреслення знизу */
   left: 50%;
   width: 0;
-  height: 2px;
+  height: 1px;
   background-color: #42b983;
   transition: width 0.3s ease, left 0.3s ease;
   transform: translateX(-50%); /* Центрування підкреслення */
@@ -546,8 +548,6 @@ export default {
 
 .nav-links ul li a:hover::after {
   width: 100%;
-  left: 0;
-  transform: translateX(0%); /* Підкреслення на всю ширину */
 }
 /* Секція автентифікації */
 .auth-section {
@@ -657,7 +657,6 @@ export default {
   border-radius: 5px;
   background-color: #333;
   color: #fff;
-  /* max-width та max-height прибрані для гнучкості */
   box-sizing: border-box; /* Важливо для правильного розрахунку ширини */
   font-size: 16px; /* Збільшимо шрифт */
   transition: border-color 0.3s ease;
@@ -686,8 +685,6 @@ export default {
   background-color: #369966;
 }
 
-
-/* --- Глибока стилізація vue-tel-input (залишається без змін) --- */
 :deep(.vue-tel-input) {
   border: 1px solid #444 !important;
   box-shadow: none !important;
@@ -747,6 +744,8 @@ export default {
 
 /* Стилі для іконки балансу (можна об'єднати з .profile-icon, якщо ідентичні) */
 .balance-icon-container {
+  width: 20px;
+  height: 20px;
   cursor: pointer;
 }
 .balance-icon .profile-img {
@@ -754,8 +753,8 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  width: 40%;
-  height: 40%;
+  width: 100%;
+  height: 100%;
   transition: opacity 0.3s ease-in-out;
 }
 .balance-icon .profile-img.dark {

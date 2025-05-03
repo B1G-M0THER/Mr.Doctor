@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
-// Імпортуємо сторінки відносними шляхами
 import HomeView from '../views/HomeView.vue';
 import DepositView from '../views/DepositView.vue';
 import OpenCardView from '../views/OpenCardView.vue';
