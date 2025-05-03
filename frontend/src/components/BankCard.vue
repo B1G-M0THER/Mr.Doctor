@@ -3,16 +3,32 @@
     <div class="card">
       <div class="card-front">
         <div class="bank-logo">YB</div>
-        <div class="card-number">{{ formattedCardNumber }}</div>
+        <div
+            class="card-number"
+            @click.stop="toggleCardMask"
+            @dblclick.stop="copyCardNumber"
+            :title="isCardNumberMasked ? 'Натисніть, щоб показати номер' : 'Натисніть, щоб приховати номер. Подвійний клік для копіювання.'"
+        >
+          {{ formattedCardNumber }}
+        </div>
         <div class="card-bottom">
           <div class="card-holder">{{ cardHolderName }}</div>
           <div class="card-expiry">{{ expiryDate }}</div>
+        </div>
+        <div v-if="showCopySuccess" class="copy-success-notification">
+          Скопійовано!
         </div>
       </div>
       <div class="card-back">
         <div class="black-strip"></div>
         <div class="cvc-box">
-          <span class="cvc">{{ cvc }}</span>
+          <span
+              class="cvc"
+              @click.stop="toggleCvcBlur"
+              :class="{ 'cvc-blurred': !isCvcRevealed }"
+          >
+            {{ cvc }}
+          </span>
         </div>
         <div class="card-balance">
           <span>Баланс:</span> {{ formattedBalance }}
@@ -39,32 +55,88 @@ export default {
       required: true,
     },
     expiryDate: {
-      type: String, // Default format
+      type: String,
     },
-    balance: { // *** НОВИЙ PROP ***
+    balance: {
       type: Number,
-      default: 0 // Значення за замовчуванням
+      default: 0
     }
   },
   data() {
     return {
-      isFlipped: false
+      isFlipped: false,
+      isCvcRevealed: false,
+      isCardNumberMasked: true,
+      showCopySuccess: false,
+      copyTimeout: null,
     };
   },
   computed: {
     formattedCardNumber() {
-      const numStr = String(this.cardNumber);
-      return numStr.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') || '0000 0000 0000 0000';
+      const numStr = String(this.cardNumber).replace(/\s/g, ''); // Видаляємо пробіли
+      if (numStr.length < 8) { // Мінімальна довжина для маскування
+        return numStr; // Повертаємо як є, якщо номер короткий
+      }
+
+      if (this.isCardNumberMasked) {
+        const firstFour = numStr.substring(0, 4);
+        const lastFour = numStr.substring(numStr.length - 4);
+        // Визначаємо кількість блоків по 4 цифри між першим та останнім
+        const middleBlocksCount = Math.floor((numStr.length - 8) / 4);
+        const remainingMiddleDigits = (numStr.length - 8) % 4;
+        // Генеруємо маску для середини
+        let middleMask = '';
+        for (let i = 0; i < middleBlocksCount; i++) {
+          middleMask += ' ****';
+        }
+        if (remainingMiddleDigits > 0) {
+          middleMask += ' ' + '*'.repeat(remainingMiddleDigits);
+          // Якщо хочете доповнити до 4 зірочок: middleMask += ' ' + '*'.repeat(remainingMiddleDigits).padEnd(4, '*');
+        }
+        return `${firstFour} **** **** ${lastFour}`;
+      } else {
+        // Повертаємо повний номер з пробілами
+        return numStr.replace(/(\d{4})(?=\d)/g, '$1 ');
+      }
     },
-    formattedBalance() { // *** НОВЕ COMPUTED для форматування балансу ***
-      // Форматуємо число з двома знаками після коми
+
+    formattedBalance() {
       return this.balance.toFixed(2) + ' UAH';
     }
 
   },
   methods: {
     flipCard() {
+      if (this.isCvcRevealed) {
+        this.isCvcRevealed = false;
+      }
+      if (!this.isCardNumberMasked) { this.isCardNumberMasked = true; }
       this.isFlipped = !this.isFlipped;
+    },
+    toggleCvcBlur() {
+      this.isCvcRevealed = !this.isCvcRevealed;
+    },
+    toggleCardMask() {
+      this.isCardNumberMasked = !this.isCardNumberMasked;
+    },
+    // *** ДОДАНО: Метод для копіювання номера ***
+    async copyCardNumber() {
+      // Завжди копіюємо повний номер без пробілів
+      const fullNumber = String(this.cardNumber).replace(/\s/g, '');
+      try {
+        await navigator.clipboard.writeText(fullNumber);
+        // Показуємо повідомлення про успіх
+        this.showCopySuccess = true;
+        // Очищуємо попередній таймаут, якщо він є
+        if(this.copyTimeout) clearTimeout(this.copyTimeout);
+        // Ховаємо повідомлення через 2 секунди
+        this.copyTimeout = setTimeout(() => {
+          this.showCopySuccess = false;
+        }, 2000);
+      } catch (err) {
+        console.error('Помилка копіювання номера картки: ', err);
+        alert('Не вдалося скопіювати номер картки.'); // Повідомлення про помилку
+      }
     }
   }
 };
@@ -144,6 +216,31 @@ body {
   flex-grow: 1;
   text-align: center;
   margin: 5px 0;
+  user-select: none;
+  cursor: pointer;
+}
+
+.copy-success-notification {
+  position: absolute;
+  bottom: 60px; /* Розташування знизу картки */
+  left: 50%;
+  transform: translateX(-50%); /* Центрування */
+  background-color: rgba(27, 27, 27, 0.7); /* Напівпрозорий фон */
+  color: #ffffff;
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 10; /* Перекриває інші елементи картки */
+  /* Анімація появи/зникнення (опціонально) */
+  animation: fadeInOut 2s forwards ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 1; } /* Швидко з'являється */
+  80% { opacity: 1; } /* Тримається */
+  100% { opacity: 0; } /* Плавно зникає */
 }
 
 .card-bottom {
@@ -212,22 +309,26 @@ body {
   padding-right: 15px; /* Padding for CVC */
   margin-left: auto;
   margin-right: 20px;
+  position: relative;
+  z-index: 2;
 }
 
 .cvc {
-  filter: blur(3px);
+  filter: blur(0px);
   transition: filter 0.3s ease;
   cursor: pointer;
   font-size: 18px;
   font-weight: bold;
   color: white;
-  background-color: rgba(0, 0, 0, 0.5); /* Background for readability */
+  background-color: rgba(0, 0, 0, 0.5);
   padding: 2px 8px;
   border-radius: 3px;
   font-family: 'Courier New', Courier, monospace;
+  user-select: none;
 }
-.cvc:hover {
-  filter: blur(0px);
+
+.cvc.cvc-blurred {
+  filter: blur(3px);
 }
 </style>
 
