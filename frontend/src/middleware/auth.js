@@ -1,21 +1,21 @@
 export function authGuard(to, from, next) {
     const token = localStorage.getItem("token");
     if (token) {
-        next(); // Дозволяємо доступ, якщо токен існує
+        next();
     } else {
-        next("/"); // Перенаправляємо на сторінку логіна, якщо токен відсутній
+        next("/");
     }
 }
 
 export function adminGuard(to, from, next) {
     const token = localStorage.getItem("token");
-    const role = localStorage.getItem("role"); // Перевіряємо роль з localStorage
+    const role = localStorage.getItem("role");
 
     if (token && role === "ADMIN") {
-        next(); // Дозволяємо доступ для адміністратора
+        next();
     } else if (token) {
-        next("/profile"); // Перенаправляємо на сторінку профілю, якщо користувач не адміністратор
+        next("/profile");
     } else {
-        next("/"); // Якщо токен відсутній, перенаправляємо на логін
+        next("/");
     }
 }

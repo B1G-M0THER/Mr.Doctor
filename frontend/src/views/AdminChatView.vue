@@ -69,86 +69,67 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useChatStore } from '../store/chatStore'; // Перевірте шлях до стору
-import { debounce } from 'lodash'; // Імпорт debounce з lodash
+import { useChatStore } from '../store/chatStore';
+import { debounce } from 'lodash';
 
-// Ініціалізація стору та локальних змінних
 const chatStore = useChatStore();
-const searchTerm = ref(''); // Для поля пошуку
-const newMessage = ref(''); // Для поля вводу нового повідомлення
-const messageContainer = ref(null); // Ref для доступу до DOM елемента повідомлень (для прокрутки)
-const isLoading = ref(false); // Прапорець стану завантаження списку користувачів
+const searchTerm = ref('');
+const newMessage = ref('');
+const messageContainer = ref(null);
+const isLoading = ref(false);
 
-// Отримання даних зі стору через computed properties
-const users = computed(() => chatStore.adminChatUserList); // Список користувачів для адміна
-const messages = computed(() => chatStore.currentChatMessages); // Повідомлення поточного вибраного чату
-const selectedUserId = computed(() => chatStore.currentSelectedUserId); // ID вибраного користувача
+const users = computed(() => chatStore.adminChatUserList);
+const messages = computed(() => chatStore.currentChatMessages);
+const selectedUserId = computed(() => chatStore.currentSelectedUserId);
 
-// ID поточного адміна з localStorage
 const currentUserId = computed(() => parseInt(localStorage.getItem('userId'), 10));
 
-// Обчислення імені вибраного користувача для заголовку чату
 const selectedUserName = computed(() => {
   const user = users.value.find(u => u.id === selectedUserId.value);
-  return user ? user.name : 'Користувач'; // Повертаємо ім'я або 'Користувач', якщо не знайдено
+  return user ? user.name : 'Користувач';
 });
 
 const confirmDeleteChat = () => {
-  if (!selectedUserId.value) return; // Перевірка, чи користувач вибраний
-
+  if (!selectedUserId.value) return;
   const userName = selectedUserName.value || `користувачем ID ${selectedUserId.value}`;
-  // Запитуємо підтвердження у адміна
+
   if (confirm(`Ви дійсно хочете видалити всю історію листування з ${userName}? Цю дію неможливо буде скасувати.`)) {
     console.log(`[AdminChatView] Deleting chat for user ${selectedUserId.value}`);
-    // Викликаємо дію стору для видалення
     chatStore.deleteChat(selectedUserId.value);
   }
 };
 
-// Функція перевірки, чи є повідомлення "моїм" (надісланим поточним адміном)
 const isMyMessage = (senderId) => {
-  // Отримуємо поточне значення computed property
   const currentId = currentUserId.value;
-
-  // Виводимо значення та їх типи в консоль
   console.log(`isMyMessage Check: senderId=${senderId} (type: ${typeof senderId}), currentUserId=${currentId} (type: ${typeof currentId})`);
 
-  // Виконуємо порівняння
   const result = senderId === currentId;
-
-  // Виводимо результат порівняння
   console.log(`Comparison Result: ${result}`);
 
   return result;
 };
 
-// *** НОВА ФУНКЦІЯ: Форматування дати для роздільника ***
 const formatDateSeparator = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
-  // Формат DD.MM.YYYY
   const day = String(date.getDate()).padStart(2, '0');
   const month = String(date.getMonth() + 1).padStart(2, '0'); // Місяці починаються з 0
   const year = date.getFullYear();
   return `${day}.${month}.${year}`;
 };
 
-// *** НОВА ФУНКЦІЯ: Перевірка, чи це новий день ***
 const isNewDay = (currentTimestamp, previousTimestamp) => {
   if (!previousTimestamp) {
-    return true; // Завжди показувати дату перед першим повідомленням
+    return true;
   }
-  // Перетворюємо на Date об'єкти, якщо це рядки
   const currentDate = new Date(currentTimestamp);
   const previousDate = new Date(previousTimestamp);
 
-  // Перевіряємо, чи коректні дати
   if (isNaN(currentDate.getTime()) || isNaN(previousDate.getTime())) {
     console.error("Invalid date detected in isNewDay:", currentTimestamp, previousTimestamp);
-    return false; // Не показувати роздільник, якщо дата некоректна
+    return false;
   }
 
-  // Порівнюємо рік, місяць і день
   return (
       currentDate.getFullYear() !== previousDate.getFullYear() ||
       currentDate.getMonth() !== previousDate.getMonth() ||
@@ -156,9 +137,7 @@ const isNewDay = (currentTimestamp, previousTimestamp) => {
   );
 };
 
-// Функція вибору користувача зі списку
 const selectUser = (userId) => {
-  // Додамо лог тут, щоб побачити, що передається
   console.log(`[AdminChatView] selectUser called with userId: ${userId}, type: ${typeof userId}`);
   if (selectedUserId.value !== userId) {
     chatStore.selectUserChat(userId);
@@ -168,81 +147,65 @@ const selectUser = (userId) => {
   }
 };
 
-// Функція надсилання повідомлення
 const sendMessageHandler = () => {
-  // Надсилаємо, тільки якщо є текст, і користувач вибраний
   if (newMessage.value.trim() && selectedUserId.value) {
     console.log(`[AdminChatView] Sending message to user ${selectedUserId.value}`);
-    // Адмін надсилає повідомлення вибраному користувачу
     chatStore.sendMessage(selectedUserId.value, newMessage.value);
-    newMessage.value = ''; // Очищаємо поле вводу
+    newMessage.value = '';
   }
 };
 
-// Функція форматування часу
 const formatTimestamp = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// Обробник пошуку з debounce (щоб запити не надсилались на кожне натискання клавіші)
 const searchUsers = debounce(() => {
   console.log(`[AdminChatView] Searching users with term: "${searchTerm.value}"`);
   isLoading.value = true;
-  chatStore.fetchChatList(searchTerm.value); // Викликаємо дію стору для оновлення списку
-  // TODO: Реалізувати більш надійне керування isLoading через стор або події
-  setTimeout(() => isLoading.value = false, 500); // Тимчасовий фікс для відображення завантаження
-}, 300); // Затримка 300 мс
+  chatStore.fetchChatList(searchTerm.value);
+  setTimeout(() => isLoading.value = false, 500);
+}, 300);
 
-// --- Логіка автоматичної прокрутки ---
 const scrollToBottom = async () => {
-  await nextTick(); // Чекаємо оновлення DOM
+  await nextTick();
   const container = messageContainer.value;
   if (container) {
-    container.scrollTop = container.scrollHeight; // Прокручуємо до кінця
+    container.scrollTop = container.scrollHeight;
   }
 };
 
-// Стежимо за змінами у масиві повідомлень активного чату
 watch(messages, () => {
   console.log('[AdminChatView] Messages updated, scrolling to bottom.');
-  scrollToBottom(); // Прокручуємо вниз при додаванні нових повідомлень
-}, { deep: true }); // deep: true для відстеження змін всередині масиву
+  scrollToBottom();
+}, { deep: true });
 
-// Дії при монтуванні компонента
 onMounted(() => {
   console.log('[AdminChatView] Component mounted.');
   isLoading.value = true;
-  chatStore.fetchChatList(); // Завантажуємо початковий список користувачів
-  // TODO: Покращити керування isLoading
+  chatStore.fetchChatList();
   setTimeout(() => isLoading.value = false, 500);
 
-  // Переконуємося, що слухачі подій Socket.IO налаштовані
-  // Це має відбуватися при підключенні сокета (в Header.vue або App.vue)
-  // Якщо є сумніви, можна викликати тут, але обережно, щоб не дублювати слухачів
-  // chatStore.setupListeners();
 });
 
 </script>
 
 <style scoped>
 
-/* *** НОВІ СТИЛІ для роздільника дати *** */
 .date-separator {
-  text-align: center; /* Вирівнювання по центру */
-  color: #a0a0a0;      /* Сірий колір тексту */
-  font-size: 0.85em;   /* Трохи менший шрифт */
-  margin: 15px 0 10px 0; /* Відступи зверху/знизу */
-  background-color: #2a2f33; /* Фон для візуального розділення */
-  padding: 3px 10px;  /* Невеликі внутрішні відступи */
-  border-radius: 10px; /* Закруглені кути */
-  align-self: center; /* Розміщуємо по центру горизонтально */
-  max-width: fit-content; /* Ширина за вмістом */
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 0.85em;
+  margin: 15px 0 10px 0;
+  background-color: #2a2f33;
+  padding: 3px 10px;
+  border-radius: 10px;
+  align-self: center;
+  max-width: fit-content;
 }
 
-/* Стилі для повідомлення про відсутність повідомлень */
-.no-messages-info { /* Додайте це правило, якщо потрібно */
+.no-messages-info {
   text-align: center;
   color: #777;
   margin-top: 20px;
@@ -251,25 +214,24 @@ onMounted(() => {
 
 .admin-chat-view {
   display: flex;
-  height: calc(100vh - 80px); /* Розрахунок висоти відносно хедера (припускаємо висоту хедера 80px) */
+  height: calc(100vh - 80px);
   background-color: #1e1e1e;
   color: #ffffff;
 }
 
-/* --- Панель списку користувачів --- */
 .user-list-panel {
-  width: 300px; /* Фіксована ширина */
-  flex-shrink: 0; /* Не стискати панель */
+  width: 300px;
+  flex-shrink: 0;
   border-right: 1px solid #444;
   display: flex;
   flex-direction: column;
-  background-color: #252526; /* Трохи світліший фон */
+  background-color: #252526;
 }
 
 .user-list-panel h2 {
   padding: 15px;
   margin: 0;
-  background-color: #333; /* Фон заголовку */
+  background-color: #333;
   border-bottom: 1px solid #444;
   font-size: 1.1em;
   text-align: center;
@@ -295,8 +257,8 @@ onMounted(() => {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex-grow: 1; /* Займає доступний простір */
-  overflow-y: auto; /* Додає прокрутку */
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
 .user-list-panel li {
@@ -305,29 +267,28 @@ onMounted(() => {
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-size: 0.95em;
-  white-space: nowrap; /* Заборона переносу тексту */
-  overflow: hidden; /* Приховування тексту, що не вміщується */
-  text-overflow: ellipsis; /* Додавання трикрапки */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-/* Стиль для елементів списку при наведенні */
+
 .user-list-panel li:hover {
   background-color: #3a3f44;
 }
-/* Стиль для вибраного елемента */
+
 .user-list-panel li.selected {
   background-color: #42b983;
   color: white;
   font-weight: bold;
 }
-/* --- Панель активного чату --- */
+
 .chat-panel {
-  flex-grow: 1; /* Займає решту простору */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Важливо, щоб внутрішні елементи не виходили за межі */
+  overflow: hidden;
 }
 
-/* Повідомлення, коли чат не вибрано */
 .no-chat-selected {
   display: flex;
   justify-content: center;
@@ -337,42 +298,38 @@ onMounted(() => {
   color: #777;
 }
 
-/* Контейнер для активного чату (хедер, повідомлення, інпут) */
 .chat-container {
   display: flex;
   flex-direction: column;
-  height: 100%; /* Займає всю висоту панелі чату */
+  height: 100%;
 }
 
-/* Хедер активного чату */
 .chat-header {
   padding: 15px;
   background-color: #333;
   border-bottom: 1px solid #444;
   font-weight: bold;
   flex-shrink: 0;
-  display: flex; /* Додано для позиціонування кнопки */
-  justify-content: space-between; /* Розмістити назву та кнопку по краях */
-  align-items: center; /* Вирівняти по вертикалі */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-/* Стилі для кнопки видалення */
 .delete-chat-btn {
-  background-color: #e74c3c; /* Червоний колір */
+  background-color: #e74c3c;
   color: white;
   border: none;
   padding: 5px 10px;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 0.85em; /* Трохи менший шрифт */
+  font-size: 0.85em;
   transition: background-color 0.2s ease;
 }
 
 .delete-chat-btn:hover {
-  background-color: #c0392b; /* Темніший червоний при наведенні */
+  background-color: #c0392b;
 }
 
-/* --- Стилі для Повідомлень та Поля Вводу (ідентичні ChatWindow.vue) --- */
 .chat-messages {
   flex-grow: 1;
   padding: 15px;
@@ -387,14 +344,13 @@ onMounted(() => {
   border-radius: 15px;
   max-width: 80%;
   word-wrap: break-word;
-  background-color: #3a3f44; /* Фон для повідомлень користувача (отриманих адміном) */
+  background-color: #3a3f44;
   align-self: flex-start;
   color: #e0e0e0;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 .message.my-message {
-  /* ЗМІНЕНО: background-color на зелений */
-  background-color: #42b983; /* Фон для повідомлень адміна ("моїх") */
+  background-color: #42b983;
   align-self: flex-end;
   color: #ffffff;
 }
@@ -406,7 +362,6 @@ onMounted(() => {
   color: #bdbdbd;
 }
 .message.my-message .sender-name {
-  /* Ім'я адміна показуємо як 'ADMIN' */
   color: #e0e0e0;
 }
 .message-content {
@@ -426,7 +381,7 @@ onMounted(() => {
   padding: 12px;
   border-top: 1px solid #444;
   background-color: #2c2f33;
-  flex-shrink: 0; /* Не стискати інпут */
+  flex-shrink: 0;
 }
 .chat-input input {
   flex-grow: 1;
@@ -457,7 +412,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* --- Стилізація скролбарів (ідентична ChatWindow.vue) --- */
 .user-list-panel ul::-webkit-scrollbar,
 .chat-messages::-webkit-scrollbar {
   width: 8px;
@@ -466,7 +420,7 @@ onMounted(() => {
 .chat-messages::-webkit-scrollbar-thumb {
   background-color: #42b983;
   border-radius: 4px;
-  border: 2px solid transparent; /* Або колір фону */
+  border: 2px solid transparent;
   background-clip: padding-box;
 }
 .user-list-panel ul::-webkit-scrollbar-track { background-color: #252526; }
@@ -475,6 +429,6 @@ onMounted(() => {
 .user-list-panel ul,
 .chat-messages {
   scrollbar-width: thin;
-  scrollbar-color: #42b983 transparent; /* Або колір фону */
+  scrollbar-color: #42b983 transparent;
 }
 </style>

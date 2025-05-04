@@ -1,9 +1,7 @@
 <template>
   <div id="app" class="vue-theme">
-    <!-- Глобальный хедер -->
     <Header />
 
-    <!-- Светлячки на фоне -->
     <div class="content-area">
       <div class="fireflies">
         <div
@@ -14,7 +12,6 @@
         ></div>
       </div>
 
-      <!-- Основной контент -->
       <router-view />
     </div>
   </div>
@@ -30,17 +27,16 @@ export default {
   },
   methods: {
     generateFireflyStyle() {
-      // Рандомизация стилей для светлячков
-      const randomPositionX = Math.random() * 100; // Случайная начальная позиция по X
-      const randomPositionY = Math.random() * 100; // Случайная начальная позиция по Y
-      const randomDelay = Math.random() * 20; // Случайная задержка до 20 секунд
-      const randomDuration = 20 + Math.random() * 20; // Длительность анимации (20–40 секунд)
+      const randomPositionX = Math.random() * 100;
+      const randomPositionY = Math.random() * 100;
+      const randomDelay = Math.random() * 20;
+      const randomDuration = 20 + Math.random() * 20;
 
       return {
-        top: `${randomPositionY}vh`, // Положение по вертикали
-        left: `${randomPositionX}vw`, // Положение по горизонтали
-        animationDelay: `${randomDelay}s`, // Разная задержка
-        animationDuration: `${randomDuration}s`, // Разная скорость
+        top: `${randomPositionY}vh`,
+        left: `${randomPositionX}vw`,
+        animationDelay: `${randomDelay}s`,
+        animationDuration: `${randomDuration}s`,
       };
     },
   },
@@ -48,7 +44,7 @@ export default {
 </script>
 
 <style>
-/* Сброс базовых стилей */
+
 html,
 body {
   margin: 0;
@@ -63,7 +59,6 @@ body {
   overflow: auto;
 }
 
-/* Главная тема приложения */
 .vue-theme {
   background-color: #1A1A1A;
   color: #ffffff;
@@ -73,38 +68,34 @@ body {
   height: 100vh;
 }
 
-/* Стилизация скроллбара для WebKit (Chrome, Edge, Safari) */
 ::-webkit-scrollbar {
-  width: 10px; /* Ширина скроллбара */
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1A1A1A; /* Цвет фона трека */
+  background: #1A1A1A;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #42b983; /* Цвет ползунка */
-  border-radius: 5px; /* Закругление краев */
+  background: #42b983;
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #36966f; /* Цвет ползунка при наведении */
+  background: #36966f;
 }
 
-/* Стилизация для Firefox */
 * {
   scrollbar-width: thin;
   scrollbar-color: #42b983 #1A1A1A;
 }
 
-/* Контейнер для контента */
 .content-area {
   position: relative;
   flex: 1;
   z-index: 1;
 }
 
-/* Контейнер для светлячков */
 .fireflies {
   position: absolute;
   top: 0;
@@ -116,18 +107,16 @@ body {
   overflow: hidden;
 }
 
-/* Один светлячок */
 .firefly {
   position: absolute;
-  width: 2px; /* Очень маленький кружок */
+  width: 2px;
   height: 2px;
-  background-color: #42b983; /* Бирюзовый цвет */
-  border-radius: 50%; /* Делает кружок */
+  background-color: #42b983;
+  border-radius: 50%;
   opacity: 0;
   animation: fly ease-in-out infinite, fade ease-in-out infinite;
 }
 
-/* Анимация движения светлячков */
 @keyframes fly {
   0% {
     transform: translate3d(0, 0, 0) scale(0.5);
@@ -146,7 +135,6 @@ body {
   }
 }
 
-/* Анимация плавного появления и исчезновения */
 @keyframes fade {
   0%, 100% {
     opacity: 0;
