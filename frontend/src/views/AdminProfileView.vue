@@ -28,7 +28,7 @@ export default {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}` };
 
-        const response = await axios.get("http://localhost:4000/api/profile", { headers });
+        const response = await axios.get("/api/profile", { headers });
 
         if (response.data.role === "ADMIN") {
           this.user = response.data;

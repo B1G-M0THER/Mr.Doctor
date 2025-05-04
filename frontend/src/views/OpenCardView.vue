@@ -42,19 +42,17 @@ export default defineComponent({
     const loading = ref(false);
     const error = ref(null);
 
-    // Отримуємо дані користувача з localStorage
     onMounted(() => {
       user.value.name = localStorage.getItem("name") || "";
       user.value.email = localStorage.getItem("email") || "";
 
-      // Якщо токен є, запитуємо додаткові дані з сервера
       const token = localStorage.getItem("token");
       if (token) {
         const headers = { Authorization: `Bearer ${token}` };
-        axios.get("http://localhost:4000/api/profile", { headers })
+        axios.get("/api/profile", { headers })
             .then((response) => {
-              user.value.name = response.data.name || user.value.name; // Оновлюємо, якщо доступно
-              user.value.email = response.data.email || user.value.email; // Оновлюємо, якщо доступно
+              user.value.name = response.data.name || user.value.name;
+              user.value.email = response.data.email || user.value.email;
             })
             .catch((error) => {
               console.error("Помилка завантаження користувача:", error);
@@ -73,7 +71,7 @@ export default defineComponent({
 
       try {
         const token = localStorage.getItem("token");
-        const response = await axios.post("http://localhost:4000/api/cards/create", {
+        const response = await axios.post("/api/cards/create", {
           token: token,
           pin: pin.value
         });

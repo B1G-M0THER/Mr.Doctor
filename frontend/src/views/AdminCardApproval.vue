@@ -26,7 +26,7 @@ export default {
     };
   },
   async created() {
-    this.fetchCards();
+    await this.fetchCards();
   },
   methods: {
     async fetchCards() {
@@ -48,7 +48,8 @@ export default {
         await axios.post("/api/admin/cards/confirm", { card_id, action: "confirm" }, { headers });
 
         alert("Картка підтверджена!");
-        this.fetchCards(); // Оновлення списку після підтвердження
+        await this.fetchCards();
+
       } catch (error) {
         alert("Помилка підтвердження картки: " + (error.response?.data?.error || error.message));
       }
@@ -60,7 +61,8 @@ export default {
 
         await axios.post("/api/admin/cards/confirm", { card_id, action: "reject" }, { headers });
 
-        this.fetchCards(); // Оновлення списку після відхилення
+        await this.fetchCards();
+
       } catch (error) {
         alert("Помилка відхилення картки: " + (error.response?.data?.error || error.message));
       }
@@ -70,7 +72,7 @@ export default {
 </script>
 
 <style scoped>
-/* Стилі для відображення карток */
+
 .card-item {
   padding: 15px;
   margin-bottom: 10px;

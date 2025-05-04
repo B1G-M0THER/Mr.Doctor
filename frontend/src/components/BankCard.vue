@@ -74,28 +74,27 @@ export default {
   computed: {
     formattedCardNumber() {
       const numStr = String(this.cardNumber).replace(/\s/g, ''); // Видаляємо пробіли
-      if (numStr.length < 8) { // Мінімальна довжина для маскування
-        return numStr; // Повертаємо як є, якщо номер короткий
+      if (numStr.length < 8) {
+        return numStr;
       }
 
       if (this.isCardNumberMasked) {
+
         const firstFour = numStr.substring(0, 4);
         const lastFour = numStr.substring(numStr.length - 4);
-        // Визначаємо кількість блоків по 4 цифри між першим та останнім
         const middleBlocksCount = Math.floor((numStr.length - 8) / 4);
         const remainingMiddleDigits = (numStr.length - 8) % 4;
-        // Генеруємо маску для середини
+
         let middleMask = '';
         for (let i = 0; i < middleBlocksCount; i++) {
           middleMask += ' ****';
         }
         if (remainingMiddleDigits > 0) {
           middleMask += ' ' + '*'.repeat(remainingMiddleDigits);
-          // Якщо хочете доповнити до 4 зірочок: middleMask += ' ' + '*'.repeat(remainingMiddleDigits).padEnd(4, '*');
         }
         return `${firstFour} **** **** ${lastFour}`;
       } else {
-        // Повертаємо повний номер з пробілами
+
         return numStr.replace(/(\d{4})(?=\d)/g, '$1 ');
       }
     },
@@ -119,23 +118,23 @@ export default {
     toggleCardMask() {
       this.isCardNumberMasked = !this.isCardNumberMasked;
     },
-    // *** ДОДАНО: Метод для копіювання номера ***
+
     async copyCardNumber() {
-      // Завжди копіюємо повний номер без пробілів
+
       const fullNumber = String(this.cardNumber).replace(/\s/g, '');
       try {
         await navigator.clipboard.writeText(fullNumber);
-        // Показуємо повідомлення про успіх
+
         this.showCopySuccess = true;
-        // Очищуємо попередній таймаут, якщо він є
+
         if(this.copyTimeout) clearTimeout(this.copyTimeout);
-        // Ховаємо повідомлення через 2 секунди
+
         this.copyTimeout = setTimeout(() => {
           this.showCopySuccess = false;
         }, 2000);
       } catch (err) {
         console.error('Помилка копіювання номера картки: ', err);
-        alert('Не вдалося скопіювати номер картки.'); // Повідомлення про помилку
+        alert('Не вдалося скопіювати номер картки.');
       }
     }
   }
@@ -143,7 +142,6 @@ export default {
 </script>
 
 <style scoped>
-/* Import Google Font */
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap');
 
 body {
@@ -154,13 +152,12 @@ body {
   font-family: 'Rajdhani', sans-serif;
 }
 
-/* Scoped styles from styles.css, adapted for the component */
 .card-container {
-  width: 360px; /* Adjust width as needed */
-  height: 220px; /* Adjust height as needed */
+  width: 360px;
+  height: 220px;
   perspective: 1000px;
-  cursor: pointer; /* Indicate it's clickable */
-  margin: 20px auto; /* Center the card and add some margin */
+  cursor: pointer;
+  margin: 20px auto;
 }
 
 .card {
@@ -168,10 +165,9 @@ body {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 0.6s; /* Smoother transition */
+  transition: transform 0.6s;
 }
 
-/* Apply flip transformation when .flipped class is present */
 .flipped .card {
   transform: rotateY(180deg);
 }
@@ -181,34 +177,33 @@ body {
   height: 100%;
   position: absolute;
   border-radius: 15px;
-  backface-visibility: hidden; /* Hide the back side when facing away */
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Slightly enhanced shadow */
-  border: 1px solid rgba(255, 255, 255, 0.2); /* Subtle border */
-  overflow: hidden; /* Ensure content doesn't spill out */
+  backface-visibility: hidden;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
   box-sizing: border-box;
 }
 
 .card-front {
-  background: linear-gradient(135deg, #3a3d40, #18191c); /* Slightly adjusted gradient */
+  background: linear-gradient(135deg, #3a3d40, #18191c);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  color: white; /* Light grey text */
+  color: white;
   padding: 25px;
 }
 
-/* Style for initials/logo */
 .bank-logo {
   font-size: 24px;
   font-weight: bold;
   text-transform: uppercase;
-  color: #42b983; /* Adjusted color */
-  align-self: flex-start; /* Position logo top-left */
+  color: #42b983;
+  align-self: flex-start;
 }
 
 .card-number {
-  font-size: 24px; /* Slightly smaller font size for better fit */
-  letter-spacing: 3px; /* Increased spacing */
+  font-size: 24px;
+  letter-spacing: 3px;
   text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
   display: flex;
   justify-content: center;
@@ -222,25 +217,24 @@ body {
 
 .copy-success-notification {
   position: absolute;
-  bottom: 60px; /* Розташування знизу картки */
+  bottom: 60px;
   left: 50%;
-  transform: translateX(-50%); /* Центрування */
-  background-color: rgba(27, 27, 27, 0.7); /* Напівпрозорий фон */
+  transform: translateX(-50%);
+  background-color: rgba(27, 27, 27, 0.7);
   color: #ffffff;
   padding: 5px 12px;
   border-radius: 5px;
   font-size: 12px;
   font-weight: bold;
-  z-index: 10; /* Перекриває інші елементи картки */
-  /* Анімація появи/зникнення (опціонально) */
+  z-index: 10;
   animation: fadeInOut 2s forwards ease-in-out;
 }
 
 @keyframes fadeInOut {
   0% { opacity: 0; }
-  20% { opacity: 1; } /* Швидко з'являється */
-  80% { opacity: 1; } /* Тримається */
-  100% { opacity: 0; } /* Плавно зникає */
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .card-bottom {
@@ -250,30 +244,30 @@ body {
 }
 
 .card-holder, .card-expiry {
-  font-size: 16px; /* Adjusted size */
+  font-size: 16px;
   text-transform: uppercase;
-  font-weight: bold; /* Slightly less bold */
+  font-weight: bold;
   opacity: 0.9;
 }
 
 .card-back {
   background: linear-gradient(135deg, #3a3d40, #18191c);
-  transform: rotateY(180deg); /* Start flipped */
+  transform: rotateY(180deg);
   display: flex;
-  flex-direction: column; /* Align items vertically */
-  justify-content: flex-start; /* Align items to the top */
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
-  padding: 0; /* Remove padding to allow full-width strip */
+  padding: 0;
   color: white;
   position: relative;
   font-family: 'Rajdhani', sans-serif;
 }
 
 .card-balance {
-  position: absolute; /* Абсолютне позиціонування */
-  bottom: 20px;      /* Відступ знизу */
-  left: 25px;       /* Відступ зліва */
-  color: #cfd8dc;   /* Світло-сірий колір */
+  position: absolute;
+  bottom: 20px;
+  left: 25px;
+  color: #cfd8dc;
   font-size: 14px;
   font-weight: bold;
   text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
@@ -286,13 +280,13 @@ body {
 
 .black-strip {
   width: 100%;
-  height: 50px; /* Increased height */
-  background: #111; /* Darker strip */
-  margin-top: 30px; /* Position strip down */
+  height: 50px;
+  background: #111;
+  margin-top: 30px;
 }
 
 .cvc-box {
-  width: calc(100% - 40px); /* Make CVC area wider */
+  width: calc(100% - 40px);
   height: 40px;
   background: repeating-linear-gradient(
       45deg,
@@ -300,13 +294,13 @@ body {
       rgba(255, 255, 255, 0.1) 5px,
       rgba(255, 255, 255, 0.15) 5px,
       rgba(255, 255, 255, 0.15) 10px
-  ); /* Signature panel pattern */
+  );
   border-radius: 5px;
-  margin-top: 20px; /* Space below strip */
+  margin-top: 20px;
   display: flex;
-  justify-content: flex-end; /* Align CVC to the right */
+  justify-content: flex-end;
   align-items: center;
-  padding-right: 15px; /* Padding for CVC */
+  padding-right: 15px;
   margin-left: auto;
   margin-right: 20px;
   position: relative;

@@ -5,7 +5,7 @@ import Cards from "../constants/cards.js";
 
 const router = express.Router();
 
-// Отримати всі картки, які очікують підтвердження
+// всі картки, які очікують підтвердження
 router.get("/cards", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -16,7 +16,6 @@ router.get("/cards", async (req, res) => {
     try {
         const decoded = jwt.verify(token, process.env.SECRET_KEY);
 
-        // Перевіряємо, чи користувач є адміністратором
         const admin = await prisma.users.findUnique({
             where: { id: decoded.id },
         });
@@ -51,7 +50,7 @@ router.get("/cards", async (req, res) => {
     }
 });
 
-// Підтвердження або відхилення картки
+// підтвердження  картки
 router.post("/cards/confirm", async (req, res) => {
     const { card_id, action } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
@@ -63,7 +62,6 @@ router.post("/cards/confirm", async (req, res) => {
     try {
         const decoded = jwt.verify(token, process.env.SECRET_KEY);
 
-        // Перевіряємо, чи користувач є адміністратором
         const admin = await prisma.users.findUnique({
             where: { id: decoded.id },
         });
@@ -80,12 +78,11 @@ router.post("/cards/confirm", async (req, res) => {
             const updatedCard = await prisma.cards.update({
                 where: { id: card_id },
                 data: {
-                    status: Cards.active, // Змінюємо статус на активний
-                    dueDate, // Оновлюємо термін дії
+                    status: Cards.active,
+                    dueDate,
                 },
             });
 
-            // Призначаємо роль CLIENT власнику картки
             await prisma.users.update({
                 where: { id: updatedCard.holder_id },
                 data: { role: "CLIENT" },

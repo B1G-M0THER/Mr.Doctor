@@ -1,16 +1,13 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prisma.js'; // Переконайтесь, що шлях правильний
 
-// Зберігаємо підключення: Map { userId: socketId }
 const connectedUsers = new Map();
 const connectedAdmins = new Map();
 
-const SECRET_KEY = process.env.SECRET_KEY; // Переконайтесь, що SECRET_KEY є у .env файлі
+const SECRET_KEY = process.env.SECRET_KEY;
 
-// Основна функція ініціалізації Socket.IO
 export default function initializeSocket(io) {
 
-    // Middleware для автентифікації кожного нового сокет-з'єднання
     io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
         if (!token) {
@@ -29,7 +26,6 @@ export default function initializeSocket(io) {
         }
     });
 
-    // Обробник події 'connection'
     io.on('connection', (socket) => {
         console.log(`[Connection] User connected: ${socket.userId} with role ${socket.userRole}, socket ID: ${socket.id}`);
 
@@ -41,9 +37,7 @@ export default function initializeSocket(io) {
             console.log('[Connection] Current connected users:', Array.from(connectedUsers.keys()));
         }
 
-        // --- Обробники подій від клієнта ---
         if (socket.userRole === 'ADMIN') {
-            // Обробник adminDeleteChat
             socket.on('adminDeleteChat', async (data) => {
                 const { userIdToDelete } = data || {};
                 const adminId = socket.userId;
@@ -81,7 +75,6 @@ export default function initializeSocket(io) {
                 }
             });
 
-            // *** ОНОВЛЕНИЙ ОБРОБНИК adminGetChatList ***
             socket.on('adminGetChatList', async (data) => {
                 const searchTerm = data?.searchTerm || '';
                 const adminId = socket.userId;
@@ -100,9 +93,7 @@ export default function initializeSocket(io) {
                         whereCondition.AND = [
                             {
                                 OR: [
-                                    // *** ВИДАЛЕНО: mode: 'insensitive' ***
                                     { name: { contains: searchTerm } },
-                                    // *** ВИДАЛЕНО: mode: 'insensitive' ***
                                     { email: { contains: searchTerm } }
                                 ]
                             }
@@ -126,18 +117,17 @@ export default function initializeSocket(io) {
 
                 } catch (error) {
                     console.error("[adminGetChatList] Error fetching chat list:", error);
-                    // Перевіряємо, чи це помилка валідації запиту (якщо mode було єдиною проблемою)
+
                     if (error.code === 'P2009' || error.message.includes("Unknown argument `mode`")) {
-                        // Це стара помилка, яка мала б зникнути. Логуємо детальніше.
                         console.error("Validation error still present?", error);
                         socket.emit('chatError', { message: 'Query validation error persists.' });
                     } else {
                         socket.emit('chatError', { message: 'Failed to fetch chat list' });
                     }
                 }
-            }); // Кінець обробника adminGetChatList
-        } // Кінець блоку if (socket.userRole === 'ADMIN')
-        // Обробник sendMessage
+            });
+        }
+
         socket.on('sendMessage', async (data) => {
             const senderId = socket.userId;
             const senderRole = socket.userRole;
@@ -227,7 +217,6 @@ export default function initializeSocket(io) {
             }
         });
 
-        // Обробник loadHistory
         socket.on('loadHistory', async (data) => {
             const { userId } = data || {};
             const currentUserId = socket.userId;
@@ -264,8 +253,6 @@ export default function initializeSocket(io) {
             }
         });
 
-
-        // Обробка відключення клієнта
         socket.on('disconnect', (reason) => {
             console.log(`[Disconnect] User disconnected: ${socket.userId}. Reason: ${reason}`);
             if (socket.userRole === 'ADMIN') {
@@ -277,5 +264,5 @@ export default function initializeSocket(io) {
             }
         });
 
-    }); // кінець io.on('connection')
-} // кінець export default initializeSocket
+    });
+}
