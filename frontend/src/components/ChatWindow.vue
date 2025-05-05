@@ -32,80 +32,66 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
-import { useChatStore } from '../store/chatStore'; // Переконайтесь, що шлях правильний
+import { useChatStore } from '../store/chatStore';
 
 const chatStore = useChatStore();
 const newMessage = ref('');
-const messageContainer = ref(null); // Ref для контейнера повідомлень для прокрутки
+const messageContainer = ref(null);
 
-// Отримуємо ID поточного користувача з localStorage
 const currentUserId = computed(() => parseInt(localStorage.getItem('userId'), 10));
 
-// Отримуємо масив повідомлень з chatStore
 const messages = computed(() => chatStore.currentChatMessages);
 
-// Функція для визначення, чи є повідомлення "моїм" (від поточного користувача)
 const isMyMessage = (senderId) => {
-  // Отримуємо поточне значення computed property
   const currentId = currentUserId.value;
-  // Виводимо значення та їх типи в консоль
   console.log(`isMyMessage Check: senderId=${senderId} (type: ${typeof senderId}), currentUserId=${currentId} (type: ${typeof currentId})`);
-  // Виконуємо порівняння
+
   const result = senderId === currentId;
-  // Виводимо результат порівняння
   console.log(`Comparison Result: ${result}`);
+
   return result;
 };
 
-// Функція для закриття вікна чату (викликає дію в сторі)
 const closeChat = () => {
   chatStore.toggleChat(false);
 };
 
-// Функція для надсилання нового повідомлення
 const sendMessageHandler = () => {
-  // Перевіряємо, чи повідомлення не порожнє (після видалення пробілів)
   if (newMessage.value.trim()) {
     chatStore.sendMessage(0, newMessage.value);
-    newMessage.value = ''; // Очищуємо поле вводу після надсилання
+    newMessage.value = '';
   }
 };
 
-// Функція для форматування часу повідомлення
 const formatTimestamp = (timestamp) => {
-  if (!timestamp) return ''; // Повертаємо порожній рядок, якщо час не визначено
+  if (!timestamp) return '';
   const date = new Date(timestamp);
-  // Форматуємо час у години:хвилини (наприклад, "14:32")
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// *** НОВА ФУНКЦІЯ: Форматування дати для роздільника ***
+
 const formatDateSeparator = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
-  // Формат DD.MM.YYYY
   const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Місяці починаються з 0
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${day}.${month}.${year}`;
 };
 
-// *** НОВА ФУНКЦІЯ: Перевірка, чи це новий день ***
 const isNewDay = (currentTimestamp, previousTimestamp) => {
   if (!previousTimestamp) {
-    return true; // Завжди показувати дату перед першим повідомленням
+    return true;
   }
-  // Перетворюємо на Date об'єкти, якщо це рядки
+
   const currentDate = new Date(currentTimestamp);
   const previousDate = new Date(previousTimestamp);
 
-  // Перевіряємо, чи коректні дати
   if (isNaN(currentDate.getTime()) || isNaN(previousDate.getTime())) {
     console.error("Invalid date detected in isNewDay:", currentTimestamp, previousTimestamp);
-    return false; // Не показувати роздільник, якщо дата некоректна
+    return false;
   }
 
-  // Порівнюємо рік, місяць і день
   return (
       currentDate.getFullYear() !== previousDate.getFullYear() ||
       currentDate.getMonth() !== previousDate.getMonth() ||
@@ -113,27 +99,19 @@ const isNewDay = (currentTimestamp, previousTimestamp) => {
   );
 };
 
-// Функція для прокрутки контейнера повідомлень до останнього повідомлення
 const scrollToBottom = async () => {
-  // nextTick чекає, доки Vue оновить DOM після зміни даних (наприклад, додавання нового повідомлення)
   await nextTick();
   const container = messageContainer.value;
-  // Якщо контейнер існує, встановлюємо його scrollTop на повну висоту прокрутки
   if (container) {
     container.scrollTop = container.scrollHeight;
   }
 };
 
-// Стежимо за змінами у масиві повідомлень
 watch(messages, () => {
-  // При будь-якій зміні (додавання нового повідомлення) викликаємо прокрутку
   scrollToBottom();
-}, { deep: true }); // deep: true необхідно для відстеження змін всередині масиву об'єктів
+}, { deep: true });
 
-// Прокручуємо вниз один раз при монтуванні компонента (коли завантажується історія)
 onMounted(() => {
-  // Завантаження історії тепер відбувається при відкритті вікна (в toggleChat у сторі)
-  // Тому тут просто прокручуємо донизу після початкового рендеру
   scrollToBottom();
 });
 
@@ -141,20 +119,18 @@ onMounted(() => {
 
 <style scoped>
 
-/* *** НОВІ СТИЛІ для роздільника дати *** */
 .date-separator {
-  text-align: center; /* Вирівнювання по центру */
-  color: #a0a0a0;      /* Сірий колір тексту */
-  font-size: 0.85em;   /* Трохи менший шрифт */
-  margin: 15px 0 10px 0; /* Відступи зверху/знизу */
-  background-color: #2a2f33; /* Фон для візуального розділення */
-  padding: 3px 10px;  /* Невеликі внутрішні відступи */
-  border-radius: 10px; /* Закруглені кути */
-  align-self: center; /* Розміщуємо по центру горизонтально */
-  max-width: fit-content; /* Ширина за вмістом */
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 0.85em;
+  margin: 15px 0 10px 0;
+  background-color: #2a2f33;
+  padding: 3px 10px;
+  border-radius: 10px;
+  align-self: center;
+  max-width: fit-content;
 }
 
-/* Стилі для повідомлення про відсутність повідомлень */
 .no-messages-info {
   text-align: center;
   color: #777;
@@ -166,29 +142,29 @@ onMounted(() => {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  width: 450px; /* Ширина вікна чату */
-  height: 600px; /* Висота вікна чату */
-  background-color: #2c2f33; /* Колір фону вікна */
-  border-radius: 10px; /* Закруглені кути */
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); /* Тінь */
+  width: 450px;
+  height: 600px;
+  background-color: #2c2f33;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   display: flex;
-  flex-direction: column; /* Елементи розташовуються вертикально */
-  z-index: 1001; /* Щоб було поверх інших елементів */
-  color: #ffffff; /* Колір тексту */
-  border: 1px solid #444; /* Тонка рамка */
-  overflow: hidden; /* Щоб внутрішні елементи не виходили за межі радіусу */
+  flex-direction: column;
+  z-index: 1001;
+  color: #ffffff;
+  border: 1px solid #444;
+  overflow: hidden;
 }
 
 .chat-header {
-  background-color: #42b983; /* Зелений колір хедера */
+  background-color: #42b983;
   padding: 10px 15px;
-  border-top-left-radius: 10px; /* Закруглення кутів хедера */
+  border-top-left-radius: 10px;
   border-top-right-radius: 10px;
   display: flex;
-  justify-content: space-between; /* Розташування тексту та кнопки по краях */
+  justify-content: space-between;
   align-items: center;
   font-weight: bold;
-  flex-shrink: 0; /* Хедер не має стискатися */
+  flex-shrink: 0;
 }
 
 .close-btn {
@@ -197,20 +173,20 @@ onMounted(() => {
   color: white;
   font-size: 20px;
   cursor: pointer;
-  padding: 0 5px; /* Невеликий відступ для клікабельності */
+  padding: 0 5px;
 }
 .close-btn:hover {
   opacity: 0.8;
 }
 
 .chat-messages {
-  flex-grow: 1; /* Займає весь доступний простір по висоті */
+  flex-grow: 1;
   padding: 15px;
-  overflow-y: auto; /* Додає вертикальну прокрутку, якщо повідомлень багато */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Відстань між повідомленнями */
-  background-color: #1e1e1e; /* Дуже темний фон для області повідомлень */
+  gap: 12px;
+  background-color: #1e1e1e;
 }
 
 .message {
@@ -218,59 +194,56 @@ onMounted(() => {
   border-radius: 15px;
   max-width: 80%;
   word-wrap: break-word;
-  background-color: #3a3f44; /* Фон для отриманих (залишається) */
+  background-color: #3a3f44;
   align-self: flex-start;
   color: #e0e0e0;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .message.my-message {
-  background-color: #42b983; /* Фон для "моїх" повідомлень (зелений) */
+  background-color: #42b983;
   align-self: flex-end;
-  color: #ffffff; /* Залишаємо білий текст на зеленому фоні */
+  color: #ffffff;
 }
 
 .sender-name {
-  font-size: 0.8em; /* Менший розмір шрифту для імені */
+  font-size: 0.8em;
   font-weight: bold;
   display: block;
   margin-bottom: 4px;
-  color: #bdbdbd; /* Колір імені */
+  color: #bdbdbd;
 }
 .message.my-message .sender-name {
-  /* Можна приховати ім'я для своїх повідомлень, якщо 'Я' достатньо */
-  /* display: none; */
   color: #e0e0e0;
 }
 
 .message-content {
   margin: 0;
   font-size: 0.95em;
-  line-height: 1.4; /* Міжрядковий інтервал */
+  line-height: 1.4;
 }
 
 .timestamp {
-  font-size: 0.75em; /* Менший розмір шрифту для часу */
+  font-size: 0.75em;
   color: #ffffff;
   display: block;
-  text-align: right; /* Час справа */
+  text-align: right;
   margin-top: 5px;
 }
-/* .message.my-message .timestamp { } */ /* Зайве правило, text-align вже right */
 
 .chat-input {
   display: flex;
-  padding: 12px; /* Збільшено падінг */
+  padding: 12px;
   border-top: 1px solid #444;
-  background-color: #2c2f33; /* Той самий колір, що й вікно */
-  flex-shrink: 0; /* Інпут не має стискатися */
+  background-color: #2c2f33;
+  flex-shrink: 0;
 }
 
 .chat-input input {
-  flex-grow: 1; /* Займає доступний простір */
+  flex-grow: 1;
   padding: 10px 12px;
   border: 1px solid #555;
-  border-radius: 20px; /* Більш круглі краї */
+  border-radius: 20px;
   background-color: #333;
   color: white;
   margin-right: 10px;
@@ -281,15 +254,15 @@ onMounted(() => {
   color: #888;
 }
 .chat-input input:focus {
-  border-color: #42b983; /* Підсвітка при фокусі */
+  border-color: #42b983;
 }
 
 .chat-input button {
-  padding: 10px 18px; /* Збільшено кнопку */
+  padding: 10px 18px;
   background-color: #42b983;
   color: white;
   border: none;
-  border-radius: 20px; /* Більш круглі краї */
+  border-radius: 20px;
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-weight: bold;
@@ -299,14 +272,13 @@ onMounted(() => {
   background-color: #369966;
 }
 
-/* Стилізація скролбару в чаті */
 .chat-messages::-webkit-scrollbar {
-  width: 8px; /* Трохи ширший скролбар */
+  width: 8px;
 }
 .chat-messages::-webkit-scrollbar-thumb {
   background-color: #42b983;
   border-radius: 4px;
-  border: 2px solid #1e1e1e; /* Відступ від краю */
+  border: 2px solid #1e1e1e;
 }
 .chat-messages::-webkit-scrollbar-track {
   background-color: #1e1e1e;

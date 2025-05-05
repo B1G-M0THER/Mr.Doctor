@@ -33,85 +33,73 @@
 
 <script>
 import axios from 'axios';
-import BankCard from '../components/BankCard.vue'; // Adjust the path if necessary
+import BankCard from '../components/BankCard.vue';
 
 export default {
   name: 'ProfileView',
   components: {
-    BankCard // Register the component
+    BankCard
   },
   data() {
     return {
-      user: null, // To store user data
-      activeCard: null, // To store active card data
+      user: null,
+      activeCard: null,
       isLoadingUser: true,
       isLoadingCard: true,
     };
   },
   async created() {
-    // Fetch user data and card data when the component is created
     await this.fetchUserData();
-    // Only fetch card data if user data was loaded successfully
+
     if (this.user) {
       await this.fetchCardData();
     }
   },
   methods: {
-    // Method to fetch user profile data
     async fetchUserData() {
       this.isLoadingUser = true;
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          // Handle case where user is not logged in, maybe redirect
-          this.$router.push('/login'); // Example redirect
+          this.$router.push('/login');
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        // --- Replace with your actual user profile API endpoint ---
         const response = await axios.get('/api/profile', { headers });
         this.user = response.data;
       } catch (error) {
         console.error("Помилка завантаження даних користувача:", error);
-        // Handle error appropriately (e.g., show message, logout user)
-        // alert('Не вдалося завантажити профіль.');
       } finally {
         this.isLoadingUser = false;
       }
     },
 
-    // Method to fetch user's active card data
     async fetchCardData() {
       this.isLoadingCard = true;
       try {
         const token = localStorage.getItem('token');
-        // No need to check token again if fetchUserData succeeded, but good practice
         if (!token) return;
 
         const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/cards/mycard', { headers }); // <<< --- YOUR API ENDPOINT HERE
+        const response = await axios.get('/api/cards/mycard', { headers });
 
-        // Check if the response contains card data and if it's active
         if (response.data && response.data.status === 'active') {
-          // Ensure necessary fields are present
           if (response.data.card_number && response.data.cvc) {
             this.activeCard = response.data;
           } else {
             console.warn("Отримані дані картки неповні:", response.data);
-            this.activeCard = null; // Set to null if data is incomplete
+            this.activeCard = null;
           }
         } else {
-          this.activeCard = null; // Set to null if no active card found
+          this.activeCard = null;
         }
       } catch (error) {
         if (error.response && error.response.status !== 404) {
           console.error("Помилка завантаження даних картки:", error);
-          // alert('Не вдалося завантажити дані картки.');
         } else if (!error.response) {
-          // Network or other errors
           console.error("Помилка завантаження даних картки:", error);
         }
-        this.activeCard = null; // Ensure activeCard is null on error
+        this.activeCard = null;
       } finally {
         this.isLoadingCard = false;
       }

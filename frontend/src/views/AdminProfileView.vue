@@ -37,7 +37,7 @@ export default {
         }
       } catch (error) {
         this.$router.push("/");
-        console.error("Error in checkUserRole:", error); // Логування помилки в консоль
+        console.error("Error in checkUserRole:", error);
         alert("Помилка при перевірці ролі: " + (error.response?.data?.error || error.message || "Невідома помилка"));
       }
     },
@@ -62,11 +62,11 @@ export default {
 .actions {
   margin-top: 30px;
   display: flex;
-  flex-direction: column; /* Розташувати посилання одне під одним */
-  align-items: center; /* Центрувати посилання */
-  gap: 15px; /* Відстань між посиланнями */
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
 }
-.action-link { /* Стилізація для посилань, щоб вони виглядали як кнопки */
+.action-link {
   display: inline-block;
   padding: 10px 20px;
   background: #42b983;
@@ -76,7 +76,7 @@ export default {
   text-decoration: none;
   border-radius: 5px;
   transition: background-color 0.3s ease;
-  min-width: 200px; /* Мінімальна ширина для однакового вигляду */
+  min-width: 200px;
   text-align: center;
 }
 .action-link:hover {

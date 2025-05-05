@@ -3,13 +3,11 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
-import Roles from "../constants/roles.js";// Подключение Prisma через сгенерированный клиент
+import Roles from "../constants/roles.js";
 
 const router = express.Router();
-
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// Регистрация
 router.post("/register", async (req, res) => {
     const { name, email, phone_number, password } = req.body;
 
@@ -18,10 +16,8 @@ router.post("/register", async (req, res) => {
     }
 
     try {
-        // Хешируем пароль
         const password_hash = await bcrypt.hash(password, 10);
 
-        // Создаем пользователя в базе данных
         const newUser = await prisma.users.create({
             data: {
                 name,
@@ -38,7 +34,6 @@ router.post("/register", async (req, res) => {
     }
 });
 
-// Логин
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -47,7 +42,6 @@ router.post("/login", async (req, res) => {
     }
 
     try {
-        // Находим пользователя по email
         const user = await prisma.users.findUnique({
             where: { email },
         });
@@ -56,14 +50,12 @@ router.post("/login", async (req, res) => {
             return res.status(404).json({ error: "Користувача не знайдено." });
         }
 
-        // Проверяем пароль
         const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
         if (!isValidPassword) {
             return res.status(400).json({ error: "Неправильний пароль." });
         }
 
-        // Генерируем токен
         const token = jwt.sign({ id: user.id, name: user.name, role: user.role }, SECRET_KEY, {
             expiresIn: "14d",
         });
@@ -74,7 +66,6 @@ router.post("/login", async (req, res) => {
     }
 });
 
-// Получение профиля
 router.get("/profile", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -92,18 +83,15 @@ router.get("/profile", async (req, res) => {
             return res.status(404).json({ error: "Користувача не знайдено." });
         }
 
-        // Повертаємо дані про користувача разом із роллю
         res.status(200).json({
             name: user.name,
             email: user.email,
             phone_number: user.phone_number,
-            role: user.role // Додаємо роль
+            role: user.role
         });
     } catch (error) {
         res.status(401).json({ error: "Недійсний токен." });
     }
 });
-
-
 
 export default router;

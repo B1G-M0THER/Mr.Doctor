@@ -13,7 +13,7 @@
       <ul>
         <li><router-link to="/">Головна</router-link></li>
         <li><router-link to="/deposit">Депозити</router-link></li>
-        <li v-if="isLoggedIn"><router-link to="/open-card">Відкрити карту</router-link></li>
+        <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card">Відкрити карту</router-link></li>
         <li><router-link to="/credit">Кредити</router-link></li>
         <li><router-link to="/about">Про нас</router-link></li>
       </ul>
@@ -154,31 +154,29 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue"; // Видалено watch, onUnmounted (якщо не потрібні для інших цілей)
-import { VueTelInput } from "vue-tel-input"; // Якщо не зареєстровано глобально, залиште імпорт
+import { ref, onMounted } from "vue";
+import { VueTelInput } from "vue-tel-input";
 import axios from "axios";
-import { useRouter } from 'vue-router'; // Для навігації при виході
-import { useChatStore } from '../store/chatStore'; // Імпорт сховища чату
-import ChatWindow from './ChatWindow.vue'; // Імпорт компонента чату
+import { useRouter } from 'vue-router';
+import { useChatStore } from '../store/chatStore';
+import ChatWindow from './ChatWindow.vue';
 
 export default {
-  name: "Header", // Додано ім'я компонента
+  name: "Header",
   components: {
-    VueTelInput, // Якщо не зареєстровано глобально
+    VueTelInput,
     ChatWindow
   },
   setup() {
     const router = useRouter();
-    const chatStore = useChatStore(); // Ініціалізуємо сховище чату
+    const chatStore = useChatStore();
 
-    // Реактивні змінні стану
     const showRegisterModal = ref(false);
     const isRegistrationMode = ref(true);
     const email = ref("");
     const name = ref("");
     const phone = ref("");
     const password = ref("");
-    // Ініціалізуємо стан логіну, ролі та ID з localStorage
     const isLoggedIn = ref(!!localStorage.getItem("token"));
     const role = ref(localStorage.getItem("role"));
     const userId = ref(localStorage.getItem("userId"));
@@ -189,13 +187,11 @@ export default {
     const successMessage = ref('');
     let successTimeout = null;
 
-    // *** НОВИЙ МЕТОД: Відкрити/закрити модальне вікно поповнення ***
     const toggleTopUpModal = () => {
       showTopUpModal.value = !showTopUpModal.value;
-      topUpAmount.value = ''; // Очищуємо поле при відкритті/закритті
+      topUpAmount.value = '';
     };
 
-    // *** НОВИЙ МЕТОД: Відправити запит на поповнення ***
     const submitTopUp = async () => {
       const amount = parseFloat(topUpAmount.value);
       if (isNaN(amount) || amount <= 0) {
@@ -207,25 +203,20 @@ export default {
         const token = localStorage.getItem('token');
         if (!token) {
           alert('Помилка автентифікації. Спробуйте увійти знову.');
-          // Можливо, додати логаут або редирект
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
 
-        // Робимо POST запит на новий ендпоінт
         const response = await axios.post('/api/cards/topup', { amount }, { headers });
 
-        // Обробка успішної відповіді
-        showTopUpModal.value = false; // Закриваємо модальне вікно
-        topUpAmount.value = ''; // Очищуємо поле
+        showTopUpModal.value = false;
+        topUpAmount.value = '';
 
-        // Показуємо повідомлення про успіх
         successMessage.value = `Вашу карту поповнено на ${amount.toFixed(2)} UAH`;
         showTopUpSuccess.value = true;
 
-        // Очищаємо попередній таймаут, якщо він є
         if (successTimeout) clearTimeout(successTimeout);
-        // Автоматично ховаємо повідомлення через 5 секунд
+
         successTimeout = setTimeout(() => {
           showTopUpSuccess.value = false;
         }, 5000);
@@ -236,25 +227,20 @@ export default {
       }
     };
 
-    // Функція закриття модального вікна
     const closeModal = () => {
       showRegisterModal.value = false;
     };
 
-    // Перемикання між формами логіну/реєстрації
     const switchMode = (isRegister) => {
       isRegistrationMode.value = isRegister;
-      // Очищуємо поля при перемиканні
       email.value = "";
       password.value = "";
       name.value = "";
       phone.value = "";
     };
 
-    // Функція реєстрації
     const register = async () => {
-      // Проста валідація (можна додати складнішу)
-      const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u; // Дозволяє кирилицю та апостроф
+      const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u;
       if (!nameRegex.test(name.value)) {
         alert(
             "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери) латиницею."
@@ -270,13 +256,12 @@ export default {
         alert("Будь ласка, введіть номер телефону.");
         return;
       }
-      if (password.value.length < 6) { // Приклад валідації пароля
+      if (password.value.length < 6) {
         alert("Пароль повинен містити щонайменше 6 символів.");
         return;
       }
 
       try {
-        // ВИПРАВЛЕНО: Використовуємо правильний URL /auth/register
         const response = await axios.post("/api/register", {
           name: name.value,
           email: email.value,
@@ -290,7 +275,6 @@ export default {
       }
     };
 
-    // Функція логіну
     const login = async () => {
       if (!email.value || !password.value) {
         alert("Будь ласка, заповніть email та пароль.");
@@ -325,9 +309,7 @@ export default {
       }
     };
 
-    // Функція виходу
     const logout = () => {
-      // Відключаємо сокет
       chatStore.disconnectSocket();
 
       localStorage.removeItem("token");
@@ -341,7 +323,6 @@ export default {
       router.push('/');
     };
 
-    // Функція для відкриття/закриття вікна чату
     const toggleChatWindow = () => {
       chatStore.toggleChat();
     };
@@ -353,7 +334,6 @@ export default {
       }
     });
 
-    // Повертаємо всі необхідні змінні та функції для використання в шаблоні
     return {
       showRegisterModal,
       isRegistrationMode,
@@ -384,7 +364,6 @@ export default {
 
 <style scoped>
 
-/* Основний стиль */
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -405,7 +384,6 @@ export default {
   gap: 15px;
 }
 
-/* Стилізація кнопки Вийти */
 .logout-button {
   background: none;
   border: none;
@@ -438,13 +416,12 @@ export default {
   width: 100%;
 }
 
-/* Загальні стилі для іконок (профіль та чат) */
 .profile-icon {
   position: relative;
   display: inline-block;
   width: 40px;
   height: 40px;
-  cursor: pointer; /* Додаємо курсор для іконок-посилань */
+  cursor: pointer;
 }
 
 .profile-icon .balance-icon-container{
@@ -477,45 +454,41 @@ export default {
   opacity: 1;
 }
 
-/* Контейнер іконки чату для позиціонування індикатора */
 .chat-icon-container {
   position: relative;
   width: 40px;
   height: 40px;
-  cursor: pointer; /* Курсор для іконки чату */
+  cursor: pointer;
 }
 
-/* Індикатор непрочитаних повідомлень */
 .unread-indicator {
   position: absolute;
-  top: -2px;  /* Позиціонування */
-  right: -2px; /* Позиціонування */
+  top: -2px;
+  right: -2px;
   width: 10px;
   height: 10px;
   background-color: red;
   border-radius: 50%;
-  border: 1.5px solid #1A1A1A; /* Обводка кольором фону для контрасту */
-  box-shadow: 0 0 3px rgba(255, 0, 0, 0.7); /* Легке світіння */
+  border: 1.5px solid #1A1A1A;
+  box-shadow: 0 0 3px rgba(255, 0, 0, 0.7);
 }
 
-/* Логотип */
 .logo img {
-  height: 84px; /* Перевірте, чи цей розмір правильний */
-  vertical-align: middle; /* Краще вирівнювання */
+  height: 84px;
+  vertical-align: middle;
 }
 
-/* Навігаційні посилання */
 .nav-links {
   flex-grow: 1;
   text-align: right;
-  margin: 0 20px; /* Додамо відступи */
+  margin: 0 20px;
 }
 
 .nav-links ul {
   list-style: none;
   display: flex;
   justify-content: flex-end;
-  gap: 25px; /* Збільшимо відстань */
+  gap: 25px;
   margin: 0;
   padding: 0;
 }
@@ -527,19 +500,19 @@ export default {
   font-weight: bold;
   font-size: 16px;
   transition: color 0.3s ease;
-  padding-bottom: 8px; /* Додамо місце для підкреслення */
+  padding-bottom: 8px;
 }
 
 .nav-links ul li a::after {
   content: '';
   position: absolute;
-  bottom: 0; /* Підкреслення знизу */
+  bottom: 0;
   left: 50%;
   width: 0;
   height: 1px;
   background-color: #42b983;
   transition: width 0.3s ease, left 0.3s ease;
-  transform: translateX(-50%); /* Центрування підкреслення */
+  transform: translateX(-50%);
 }
 
 .nav-links ul li a:hover {
@@ -549,9 +522,9 @@ export default {
 .nav-links ul li a:hover::after {
   width: 100%;
 }
-/* Секція автентифікації */
+
 .auth-section {
-  margin-left: 40px; /* Прибрали фіксований відступ, використовуємо flex/gap */
+  margin-left: 40px;
 }
 
 .auth-button {
@@ -570,26 +543,25 @@ export default {
   background-color: #369966;
 }
 
-/* --- Стилі Модального Вікна (залишаються без змін) --- */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   height: 100%;
   width: 100%;
-  background: rgba(0, 0, 0, 0.7); /* Трохи темніше */
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1050; /* Вище за хедер */
+  z-index: 1050;
 }
 
 .modal-content {
   background-color: #1a1a1a;
   color: #ffffff;
-  width: 90%; /* Адаптивна ширина */
-  max-width: 400px; /* Максимальна ширина */
-  padding: 30px; /* Більше падінгу */
+  width: 90%;
+  max-width: 400px;
+  padding: 30px;
   border-radius: 8px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
   position: relative;
@@ -639,30 +611,30 @@ export default {
 
 .form-group {
   text-align: left;
-  margin-bottom: 20px; /* Більша відстань */
+  margin-bottom: 20px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px; /* Більша відстань */
+  margin-bottom: 8px;
   color: #cfd8dc;
   font-size: 14px;
 }
 
 .form-group input,
-:deep(.vue-tel-input) { /* Застосовуємо і до vue-tel-input */
+:deep(.vue-tel-input) {
   width: 100%;
-  padding: 10px 12px; /* Більший падінг */
+  padding: 10px 12px;
   border: 1px solid #444;
   border-radius: 5px;
   background-color: #333;
   color: #fff;
-  box-sizing: border-box; /* Важливо для правильного розрахунку ширини */
-  font-size: 16px; /* Збільшимо шрифт */
+  box-sizing: border-box;
+  font-size: 16px;
   transition: border-color 0.3s ease;
 }
 .form-group input:focus,
-:deep(.vue-tel-input.focused .vti__input) { /* Стиль фокусу */
+:deep(.vue-tel-input.focused .vti__input) {
   border-color: #42b983;
   outline: none;
 }
@@ -670,7 +642,7 @@ export default {
 
 .submit-button {
   background-color: #42b983;
-  padding: 12px 25px; /* Більша кнопка */
+  padding: 12px 25px;
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -678,8 +650,8 @@ export default {
   font-size: 16px;
   font-weight: bold;
   transition: background-color 0.3s ease;
-  width: 100%; /* Кнопка на всю ширину */
-  margin-top: 10px; /* Відступ зверху */
+  width: 100%;
+  margin-top: 10px;
 }
 .submit-button:hover {
   background-color: #369966;
@@ -691,19 +663,17 @@ export default {
   background-color: #333 !important;
   color: #fff !important;
   border-radius: 5px !important;
-  /* width: 100% !important; */ /* Вже задано вище */
-  /* max-width: none !important; */ /* Прибрали обмеження */
 }
 
-:deep(.vue-tel-input .vti__input) { /* Стилізуємо саме поле вводу */
+:deep(.vue-tel-input .vti__input) {
   background-color: transparent !important;
   color: #fff !important;
   border: none !important;
   box-shadow: none !important;
   outline: none !important;
   width: 100% !important;
-  font-size: 16px !important; /* Як у звичайних інпутах */
-  padding: 0 !important; /* Внутрішні падінги вже є у wrapper */
+  font-size: 16px !important;
+  padding: 0 !important;
 }
 
 
@@ -711,7 +681,7 @@ export default {
   background-color: #333 !important;
   color: #fff;
   border: none !important;
-  border-top-left-radius: 5px; /* Закруглення */
+  border-top-left-radius: 5px;
   border-bottom-left-radius: 5px;
 }
 :deep(.vue-tel-input .vti__dropdown:hover) {
@@ -724,7 +694,7 @@ export default {
   opacity: 0.7;
 }
 
-:deep(.vti__dropdown-list) { /* Контейнер списку країн */
+:deep(.vti__dropdown-list) {
   background-color: #333 !important;
   border: 1px solid #555 !important;
 }
@@ -738,18 +708,16 @@ export default {
   background-color: #444 !important;
   color: #fff;
 }
-:deep(.vti__dropdown-item.highlighted) { /* Вибрана країна */
+:deep(.vti__dropdown-item.highlighted) {
   background-color: #555 !important;
 }
 
-/* Стилі для іконки балансу (можна об'єднати з .profile-icon, якщо ідентичні) */
 .balance-icon-container {
   width: 20px;
   height: 20px;
   cursor: pointer;
 }
 .balance-icon .profile-img {
-  /* ... стилі аналогічні до .profile-img в .profile-icon */
   position: absolute;
   top: 0;
   left: 0;
@@ -767,46 +735,40 @@ export default {
   opacity: 1;
 }
 
-/* Стилі для модального вікна поповнення (можна частково успадкувати від .modal-content) */
 .topup-modal-content {
-  /* Можна додати специфічні стилі, якщо потрібно відрізняти від вікна логіну */
-  max-width: 350px; /* Трохи менше */
+  max-width: 350px;
 }
 .topup-modal-content h3 {
   color: #42b983;
   margin-bottom: 25px;
 }
 
-/* *** НОВІ СТИЛІ для повідомлення про успіх *** */
 .success-notification {
-  position: fixed; /* Фіксоване позиціонування */
-  bottom: 20px;     /* Відступ знизу */
-  right: 20px;      /* Відступ справа */
-  background-color: #42b983; /* Зелений фон */
-  color: #ffffff;         /* Білий текст */
-  padding: 15px 25px;    /* Внутрішні відступи */
-  border-radius: 8px;     /* Закруглені кути */
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Тінь */
-  z-index: 1100;         /* Вище за модальні вікна */
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #42b983;
+  color: #ffffff;
+  padding: 15px 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  z-index: 1100;
   font-size: 14px;
   font-weight: bold;
-  /* Анімація появи/зникнення */
   animation: slideInFadeOut 5s forwards ease-in-out;
-  /* forwards - залишає стан останнього кадру (прозорість 0) */
 }
 
-/* Анімація для повідомлення */
 @keyframes slideInFadeOut {
   0% {
-    transform: translateX(100%); /* Починаємо за межами екрану справа */
+    transform: translateX(100%);
     opacity: 0;
   }
-  10%, 90% { /* Залишаємось видимими більшу частину часу */
+  10%, 90% {
     transform: translateX(0);
     opacity: 1;
   }
   100% {
-    transform: translateX(100%); /* Зникаємо вправо */
+    transform: translateX(100%);
     opacity: 0;
   }
 }

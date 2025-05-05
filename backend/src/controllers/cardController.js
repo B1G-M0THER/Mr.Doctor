@@ -6,32 +6,26 @@ import Cards from "../constants/cards.js";
 const SECRET_KEY = process.env.SECRET_KEY;
 
 export const topUpCardBalance = async (req, res) => {
-    let userId; // Змінна для ID користувача
-
-    // --- Початок вбудованої логіки перевірки токена (скопійовано з GET /mycard) ---
+    let userId;
     try {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
 
         if (token == null) {
-            // Якщо токен відсутній, не продовжуємо
             return res.status(401).json({ error: 'Неавторизований доступ: токен відсутній.' });
         }
 
         let decodedPayload;
         try {
             decodedPayload = jwt.verify(token, SECRET_KEY);
-
-            // Опціонально, але рекомендовано: Перевірка існування користувача в БД
             const userExists = await prisma.users.findUnique({
                 where: { id: decodedPayload.id },
-                select: { id: true } // Вибираємо тільки id для перевірки
+                select: { id: true }
             });
             if (!userExists) {
                 console.warn(`User with ID ${decodedPayload.id} from token not found in DB (topup route).`);
                 return res.status(401).json({ error: 'Неавторизований доступ: користувача не знайдено.' });
             }
-            // Успішно отримали ID користувача
             userId = decodedPayload.id;
 
         } catch (error) {
@@ -42,23 +36,17 @@ export const topUpCardBalance = async (req, res) => {
             if (error instanceof jwt.JsonWebTokenError) {
                 return res.status(401).json({ error: 'Неавторизований доступ: недійсний токен.' });
             }
-            // Інша помилка верифікації
             return res.status(500).json({ error: 'Помилка сервера при перевірці токена.' });
         }
     } catch (e) {
-        // Загальна помилка блоку перевірки токена
         console.error("Error during auth block in /topup:", e);
         return res.status(500).json({ error: 'Внутрішня помилка сервера під час автентифікації.' });
     }
-    // --- Кінець вбудованої логіки перевірки токена ---
 
-    // Перевіряємо, чи вдалося отримати userId
     if (!userId) {
         console.error('userId is undefined after auth block in topUpCardBalance');
         return res.status(401).json({ error: 'Не вдалося ідентифікувати користувача.' });
     }
-
-    // === Подальша логіка поповнення (використовує отриманий userId) ===
 
     const { amount } = req.body;
     const topUpAmount = parseFloat(amount);
@@ -69,7 +57,7 @@ export const topUpCardBalance = async (req, res) => {
     try {
         const card = await prisma.cards.findFirst({
             where: {
-                holder_id: userId, // Використовуємо userId, отриманий вище
+                holder_id: userId,
                 status: Cards.active
             }
         });
@@ -96,10 +84,8 @@ export const topUpCardBalance = async (req, res) => {
 
 export const decodeToken = (token) => {
     try {
-        // Убираем возможный префикс "Bearer "
         const cleanToken = token.startsWith("Bearer ") ? token.split(" ")[1] : token;
 
-        // Декодируем токен
         return  jwt.verify(cleanToken, SECRET_KEY);
     } catch (error) {
         console.error("Ошибка при разборе токена:", error.message);
@@ -107,12 +93,10 @@ export const decodeToken = (token) => {
     }
 };
 
-// Функція для генерації номера картки за алгоритмом Луна
 function generateCardNumber() {
-    let cardNumberBase = "767964" + crypto.randomInt(100000000, 999999999); // 6 фіксованих + 9 випадкових
+    let cardNumberBase = "767964" + crypto.randomInt(100000000, 999999999);
     let digits = cardNumberBase.split("").map(Number);
 
-    // Алгоритм Луна
     let sum = 0;
     for (let i = digits.length - 1; i >= 0; i -= 2) {
         sum += digits[i];
@@ -127,12 +111,10 @@ function generateCardNumber() {
     return finalCardNumber.replace(/(\d{4})/g, "$1 ").trim();
 }
 
-// Функція для генерації CVC
 function generateCVC() {
     return crypto.randomInt(100, 999);
 }
 
-// Контролер для створення картки
 export const createCard = async (req, res) => {
     const {token, pin } = req.body;
 
@@ -148,7 +130,7 @@ export const createCard = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "Користувача не знайдено!" });
         }
-        // Генеруємо картку
+
         let cardNumber;
         let cardExists;
         do {
@@ -163,7 +145,7 @@ export const createCard = async (req, res) => {
                 holder_id: user.id,
                 pin: Number(pin),
                 balance: 0,
-                status: Cards.waiting, // Беремо статус із файлу cards.js
+                status: Cards.waiting,
                 dueDate: "00/00",
             },
         });

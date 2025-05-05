@@ -1,17 +1,15 @@
 import express from 'express';
-import prisma from '../config/prisma.js'; // Ваш Prisma клієнт
-import jwt from 'jsonwebtoken'; // Потрібен для верифікації токена
+import prisma from '../config/prisma.js';
+import jwt from 'jsonwebtoken';
 import { createCard, topUpCardBalance } from "../controllers/cardController.js";
 
 const router = express.Router();
-const SECRET_KEY = process.env.SECRET_KEY; // Потрібен для верифікації
+const SECRET_KEY = process.env.SECRET_KEY;
 
 router.post("/create", createCard);
 
-// Отримати активну картку поточного користувача
-router.get('/mycard', async (req, res) => { // Забираємо authenticateToken з параметрів
+router.get('/mycard', async (req, res) => {
     try {
-        // --- Початок вбудованої логіки перевірки токена ---
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
 
@@ -19,11 +17,9 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
             return res.status(401).json({ error: 'Неавторизований доступ: токен відсутній.' });
         }
 
-        let decodedPayload; // Змінна для збереження розкодованих даних
+        let decodedPayload;
         try {
             decodedPayload = jwt.verify(token, SECRET_KEY);
-
-            // Опціонально: Перевірка існування користувача в БД (рекомендовано)
             const userExists = await prisma.users.findUnique({
                 where: { id: decodedPayload.id },
                 select: { id: true }
@@ -34,7 +30,6 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
             }
 
         } catch (error) {
-            // Обробка помилок верифікації токена
             console.error("Token verification error in /create:", error.message);
             if (error instanceof jwt.TokenExpiredError) {
                 return res.status(401).json({ error: 'Неавторизований доступ: термін дії токена вийшов.' });
@@ -44,24 +39,19 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
             }
             return res.status(500).json({ error: 'Помилка сервера при перевірці токена.' });
         }
-        // --- Кінець вбудованої логіки перевірки токена ---
 
-        // Тепер використовуємо ID користувача з розкодованого токена
         const userId = decodedPayload.id;
 
         if (!userId) {
-            // Ця перевірка тепер менш імовірна, але залишаємо про всяк випадок
             console.error('ID користувача не визначено після верифікації токена у cards.js');
             return res.status(401).json({ error: 'Не вдалося ідентифікувати користувача.' });
         }
 
-        // Основна логіка маршруту: пошук активної картки
         const activeCard = await prisma.cards.findFirst({
             where: {
                 holder_id: userId,
-                status: 'active' // Шукаємо тільки активні картки
             },
-            select: { // Вибираємо тільки потрібні поля
+            select: {
                 id: true,
                 card_number: true,
                 cvc: true,
@@ -78,9 +68,8 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
         }
 
     } catch (error) {
-        // Загальна обробка помилок для основної логіки маршруту
         console.error("Помилка отримання картки користувача:", error);
-        // Уникаємо повторної відправки заголовків, якщо помилка сталася після перевірки токена
+
         if (!res.headersSent) {
             return res.status(500).json({ error: 'Помилка сервера при отриманні картки.' });
         }

@@ -6,8 +6,8 @@ import userRoutes from "./routes/auth.js";
 import authRoutes from "./routes/auth.js";
 import cardRoutes from "./routes/cards.js";
 import adminRoutes from "./routes/admin.js";
-import http from "http"; // Додано
-import { Server } from "socket.io"; // Додано
+import http from "http";
+import { Server } from "socket.io";
 import initializeSocket from "./socket/socketHandler.js";
 
 dotenv.config();
@@ -16,15 +16,13 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
-// Налаштування CORS для Socket.IO (дозволити з вашого фронтенду)
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // ВАЖЛИВО: Замініть на URL вашого фронтенду!
+        origin: "http://localhost:5173",
         methods: ["GET", "POST"]
     }
 });
 
-// Ініціалізація обробників Socket.IO
 initializeSocket(io);
 
 app.use(cors());
