@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import prisma from '../config/prisma.js'; // Переконайтесь, що шлях правильний
+import prisma from '../config/prisma.js';
 
 const connectedUsers = new Map();
 const connectedAdmins = new Map();

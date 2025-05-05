@@ -5,7 +5,6 @@ import Cards from "../constants/cards.js";
 
 const router = express.Router();
 
-// всі картки, які очікують підтвердження
 router.get("/cards", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
 
@@ -50,7 +49,6 @@ router.get("/cards", async (req, res) => {
     }
 });
 
-// підтвердження  картки
 router.post("/cards/confirm", async (req, res) => {
     const { card_id, action } = req.body;
     const token = req.headers.authorization?.split(" ")[1];
@@ -71,7 +69,6 @@ router.post("/cards/confirm", async (req, res) => {
         }
 
         if (action === "confirm") {
-            // Підтвердження картки
             const currentDate = new Date();
             const dueDate = `${String(currentDate.getMonth() + 1).padStart(2, "0")}/${currentDate.getFullYear() + 10}`;
 
@@ -90,7 +87,6 @@ router.post("/cards/confirm", async (req, res) => {
 
             return res.status(200).json({ message: "Картка підтверджена." });
         } else if (action === "reject") {
-            // Відхилення картки
             await prisma.cards.delete({
                 where: { id: card_id },
             });
