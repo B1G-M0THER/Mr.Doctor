@@ -51,7 +51,6 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
         const activeCard = await prisma.cards.findFirst({
             where: {
                 holder_id: userId,
-                status: 'active'
             },
             select: {
                 id: true,

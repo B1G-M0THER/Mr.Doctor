@@ -8,7 +8,6 @@ const SECRET_KEY = process.env.SECRET_KEY;
 export const topUpCardBalance = async (req, res) => {
     let userId;
 
-    // логіка перевірки токена
     try {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
@@ -48,13 +47,10 @@ export const topUpCardBalance = async (req, res) => {
         return res.status(500).json({ error: 'Внутрішня помилка сервера під час автентифікації.' });
     }
 
-    // чи вдалося отримати userId
     if (!userId) {
         console.error('userId is undefined after auth block in topUpCardBalance');
         return res.status(401).json({ error: 'Не вдалося ідентифікувати користувача.' });
     }
-
-    // логіка поповнення
 
     const { amount } = req.body;
     const topUpAmount = parseFloat(amount);
@@ -93,8 +89,6 @@ export const topUpCardBalance = async (req, res) => {
 export const decodeToken = (token) => {
     try {
         const cleanToken = token.startsWith("Bearer ") ? token.split(" ")[1] : token;
-
-        // декодуємо токен
         return  jwt.verify(cleanToken, SECRET_KEY);
     } catch (error) {
         console.error("Ошибка при разборе токена:", error.message);
@@ -102,12 +96,10 @@ export const decodeToken = (token) => {
     }
 };
 
-// генерація номера картки за алгоритмом Луна
 function generateCardNumber() {
     let cardNumberBase = "767964" + crypto.randomInt(100000000, 999999999); // 6 фіксованих + 9 випадкових
     let digits = cardNumberBase.split("").map(Number);
 
-    // Алгоритм Луна
     let sum = 0;
     for (let i = digits.length - 1; i >= 0; i -= 2) {
         sum += digits[i];
@@ -122,12 +114,10 @@ function generateCardNumber() {
     return finalCardNumber.replace(/(\d{4})/g, "$1 ").trim();
 }
 
-// генерація CVC
 function generateCVC() {
     return crypto.randomInt(100, 999);
 }
 
-// створення картки
 export const createCard = async (req, res) => {
     const {token, pin } = req.body;
 

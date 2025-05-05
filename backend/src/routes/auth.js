@@ -3,13 +3,11 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../config/prisma.js";
-import Roles from "../constants/roles.js";// Подключение Prisma через сгенерированный клиент
+import Roles from "../constants/roles.js";
 
 const router = express.Router();
-
 const SECRET_KEY = process.env.SECRET_KEY;
 
-// Реєстрація
 router.post("/register", async (req, res) => {
     const { name, email, phone_number, password } = req.body;
 
@@ -20,7 +18,6 @@ router.post("/register", async (req, res) => {
     try {
         const password_hash = await bcrypt.hash(password, 10);
 
-        // Создаємо користувача в БД
         const newUser = await prisma.users.create({
             data: {
                 name,
@@ -37,7 +34,6 @@ router.post("/register", async (req, res) => {
     }
 });
 
-// Логін
 router.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
@@ -72,7 +68,6 @@ router.post("/login", async (req, res) => {
     }
 });
 
-// Профіль
 router.get("/profile", async (req, res) => {
     const token = req.headers.authorization?.split(" ")[1];
 

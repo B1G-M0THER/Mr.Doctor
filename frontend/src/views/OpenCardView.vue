@@ -1,4 +1,4 @@
-<template xmlns:strongEmail="http://www.w3.org/1999/html">
+<template>
   <div class="page">
     <h1>Чому саме ми?</h1>
     <p class="description">
@@ -6,7 +6,6 @@
       Ми пропонуємо швидке та безпечне відкриття карткового рахунку, вигідні умови обслуговування
       та цілодобову підтримку клієнтів.
     </p>
-
     <ul class="benefits">
       <li>💳 Безкоштовне відкриття картки</li>
       <li>🔒 Високий рівень безпеки</li>
@@ -14,48 +13,86 @@
       <li>📞 Цілодобова підтримка</li>
     </ul>
 
-    <h2>Подайте заявку прямо зараз</h2>
-    <form @submit.prevent="submitForm" class="form">
-      <p v-if="user.name"><strong>Ім'я:</strong> {{ user.name }}</p>
-      <p v-if="user.email"><strong>Email:</strong> {{ user.email }}</p>
-      <input v-model="pin" type="password" placeholder="Придумайте 4-значний PIN" required maxlength="4" minlength="4" class="input" />
-      <button type="submit" :disabled="loading" class="button">
-        {{ loading ? "Обробка..." : "Підтвердити" }}
-      </button>
-    </form>
-    <p v-if="cardNumber" class="success-message">
-      Ваша карта майже готова
-      ⏱️ Очікуйте підтверження адміністратора на підтвердження карти.
-    </p>
+    <div v-if="cardStatus === 'waiting'" class="status-message">
+      <h2>Ваша карта майже готова</h2>
+      <p>⏱️ Очікуйте підтверження адміністратора на відкриття вашої карти карти.</p>
+    </div>
+
+    <div v-else-if="cardStatus === null">
+      <h2>Подайте заявку прямо зараз</h2>
+      <form @submit.prevent="submitForm" class="form">
+        <p v-if="user.name"><strong>Ім'я:</strong> {{ user.name }}</p>
+        <p v-if="user.email"><strong>Email:</strong> {{ user.email }}</p>
+        <input v-model="pin" type="password" placeholder="Придумайте 4-значний PIN" required maxlength="4" minlength="4" class="input" />
+        <button type="submit" :disabled="loading" class="button">
+          {{ loading ? "Обробка..." : "Підтвердити" }}
+        </button>
+      </form>
+      <p v-if="showPendingMessageAfterSubmit" class="success-message">
+        Ваша карта майже готова!
+        ⏱️ Очікуйте підтверження адміністратора на відкриття вашої карти карти.
+      </p>
+    </div>
+
+
+    <div v-else class="status-message">
+      <p>Банк YB дякує вам за співпрацю! Разом до успіху! 🚀💛</p>
+    </div>
+
   </div>
 </template>
 
 <script>
 import { defineComponent, ref, onMounted } from "vue";
 import axios from "axios";
+import Cards from '../../../backend/src/constants/cards';
 
 export default defineComponent({
   setup() {
     const user = ref({name: "", email: ""});
     const pin = ref("");
-    const cardNumber = ref(null);
+    const showPendingMessageAfterSubmit = ref(false);
     const loading = ref(false);
+    const cardStatus = ref(undefined);
     const error = ref(null);
 
-    onMounted(() => {
-      user.value.name = localStorage.getItem("name") || "";
-      user.value.email = localStorage.getItem("email") || "";
-
+    async function fetchCardStatus() {
       const token = localStorage.getItem("token");
+      if (!token) {
+        cardStatus.value = null;
+        return;
+      }
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const response = await axios.get("/api/cards/mycard", { headers });
+        cardStatus.value = response.data.status;
+      } catch (error) {
+        if (error.response && error.response.status === 404) {
+          cardStatus.value = null;
+        } else {
+          console.error("Помилка отримання статусу картки:", error);
+          cardStatus.value = 'error';
+          alert("Не вдалося перевірити статус вашої картки.");
+        }
+      }
+    }
+
+    onMounted(async () => {
+      const token = localStorage.getItem("token");
+
+      await fetchCardStatus();
+
       if (token) {
         const headers = { Authorization: `Bearer ${token}` };
         axios.get("/api/profile", { headers })
             .then((response) => {
-              user.value.name = response.data.name || user.value.name;
-              user.value.email = response.data.email || user.value.email;
+              user.value.name = response.data.name || "";
+              user.value.email = response.data.email || "";
             })
-            .catch((error) => {
-              console.error("Помилка завантаження користувача:", error);
+            .catch((profileError) => {
+              console.error("Помилка завантаження профілю:", profileError);
+              user.value.name = localStorage.getItem("name") || "";
+              user.value.email = localStorage.getItem("email") || "";
             });
       }
     });
@@ -63,30 +100,48 @@ export default defineComponent({
     async function submitForm() {
       error.value = null;
       loading.value = true;
+      showPendingMessageAfterSubmit.value = false;
+
+      if (!pin.value || pin.value.length !== 4 || isNaN(pin.value)) {
+        alert("Будь ласка, введіть коректний 4-значний PIN.");
+        loading.value = false;
+        return;
+      }
 
       if (!user.value.name || !user.value.email) {
-        alert("Ім'я або email користувача не знайдені!");
+        alert("Дані користувача (ім'я або email) не завантажені!");
+        loading.value = false;
         return;
       }
 
       try {
         const token = localStorage.getItem("token");
+        if (!token) {
+          alert("Помилка автентифікації. Спробуйте увійти знову.");
+          loading.value = false;
+          return;
+        }
+
         const response = await axios.post("/api/cards/create", {
           token: token,
           pin: pin.value
         });
 
-        cardNumber.value = response.data.cardNumber;
         localStorage.setItem("token", response.data.token);
-        console.log(response.data.token, localStorage.getItem("token") );
-      } catch (error) {
-        alert(error.response?.data?.error || "Помилка створення картки");
+
+        showPendingMessageAfterSubmit.value = true;
+
+        cardStatus.value = Cards.waiting;
+
+      } catch (submitError) {
+        alert(submitError.response?.data?.error || "Помилка створення картки");
+        error.value = submitError.response?.data?.error || "Помилка створення картки";
       } finally {
         loading.value = false;
       }
     }
 
-    return { user, pin, submitForm, cardNumber, loading, error };
+    return { user, pin, submitForm, loading, error, cardStatus, showPendingMessageAfterSubmit };
   },
 });
 </script>
@@ -174,5 +229,41 @@ p {
   font-size: 16px;
   margin-top: 20px;
   color: #ffffff;
+  padding: 15px;
+  background-color: rgb(55, 55, 55, 0.5);
+  border: 1px solid #444;
+  border-radius: 8px;
+}
+
+.status-message {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: rgb(55, 55, 55, 0.5);
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #e0e0e0;
+}
+
+.status-message h2 {
+  color: #42b983;
+  margin-bottom: 10px;
+}
+
+.button-link {
+  display: inline-block;
+  margin-top: 15px;
+  background: #42b983;
+  color: #ffffff;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  text-decoration: none;
+}
+
+.button-link:hover {
+  background-color: #369966;
 }
 </style>
