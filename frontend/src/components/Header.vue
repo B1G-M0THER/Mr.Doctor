@@ -238,7 +238,7 @@ export default {
     };
 
     const register = async () => {
-      const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u; // Дозволяє кирилицю та апостроф
+      const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u;
       if (!nameRegex.test(name.value)) {
         alert(
             "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери) латиницею."
@@ -254,7 +254,7 @@ export default {
         alert("Будь ласка, введіть номер телефону.");
         return;
       }
-      if (password.value.length < 6) { // Приклад валідації пароля
+      if (password.value.length < 6) {
         alert("Пароль повинен містити щонайменше 6 символів.");
         return;
       }
