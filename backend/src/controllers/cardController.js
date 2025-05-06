@@ -111,10 +111,10 @@ function generateCardNumber() {
 
     let lastDigit = (10 - (sum % 10)) % 10;
     let finalCardNumber = cardNumberBase + lastDigit.toString();
-    return finalCardNumber.replace(/(\d{4})/g, "$1 ").trim();
+    return finalCardNumber;
 }
 
-function generateCVC() {
+function generateCVV() {
     return crypto.randomInt(100, 999);
 }
 
@@ -144,7 +144,7 @@ export const createCard = async (req, res) => {
         const newCard = await prisma.cards.create({
             data: {
                 card_number: generateCardNumber(),
-                cvc: generateCVC(),
+                cvv: generateCVV(),
                 holder_id: user.id,
                 pin: Number(pin),
                 balance: 0,

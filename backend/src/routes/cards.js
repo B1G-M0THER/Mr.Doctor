@@ -55,7 +55,7 @@ router.get('/mycard', async (req, res) => { // Забираємо authenticateTo
             select: {
                 id: true,
                 card_number: true,
-                cvc: true,
+                cvv: true,
                 dueDate: true,
                 status: true,
                 balance: true,

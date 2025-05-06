@@ -21,13 +21,13 @@
       </div>
       <div class="card-back">
         <div class="black-strip"></div>
-        <div class="cvc-box">
+        <div class="cvv-box">
           <span
-              class="cvc"
-              @click.stop="toggleCvcBlur"
-              :class="{ 'cvc-blurred': !isCvcRevealed }"
+              class="cvv"
+              @click.stop="toggleCvvBlur"
+              :class="{ 'cvv-blurred': !isCvvRevealed }"
           >
-            {{ cvc }}
+            {{ cvv }}
           </span>
         </div>
         <div class="card-balance">
@@ -50,7 +50,7 @@ export default {
       type: String,
       required: true,
     },
-    cvc: {
+    cvv: {
       type: [String, Number],
       required: true,
     },
@@ -65,7 +65,7 @@ export default {
   data() {
     return {
       isFlipped: false,
-      isCvcRevealed: false,
+      isCvvRevealed: false,
       isCardNumberMasked: true,
       showCopySuccess: false,
       copyTimeout: null,
@@ -73,7 +73,7 @@ export default {
   },
   computed: {
     formattedCardNumber() {
-      const numStr = String(this.cardNumber).replace(/\s/g, ''); // Видаляємо пробіли
+      const numStr = String(this.cardNumber).replace(/\s/g, '');
       if (numStr.length < 8) {
         return numStr;
       }
@@ -106,14 +106,14 @@ export default {
   },
   methods: {
     flipCard() {
-      if (this.isCvcRevealed) {
-        this.isCvcRevealed = false;
+      if (this.isCvvRevealed) {
+        this.isCvvRevealed = false;
       }
       if (!this.isCardNumberMasked) { this.isCardNumberMasked = true; }
       this.isFlipped = !this.isFlipped;
     },
-    toggleCvcBlur() {
-      this.isCvcRevealed = !this.isCvcRevealed;
+    toggleCvvBlur() {
+      this.isCvvRevealed = !this.isCvvRevealed;
     },
     toggleCardMask() {
       this.isCardNumberMasked = !this.isCardNumberMasked;
@@ -285,7 +285,7 @@ body {
   margin-top: 30px;
 }
 
-.cvc-box {
+.cvv-box {
   width: calc(100% - 40px);
   height: 40px;
   background: repeating-linear-gradient(
@@ -307,7 +307,7 @@ body {
   z-index: 2;
 }
 
-.cvc {
+.cvv {
   filter: blur(0px);
   transition: filter 0.3s ease;
   cursor: pointer;
@@ -321,7 +321,7 @@ body {
   user-select: none;
 }
 
-.cvc.cvc-blurred {
+.cvv.cvv-blurred {
   filter: blur(3px);
 }
 </style>
