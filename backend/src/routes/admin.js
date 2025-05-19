@@ -28,7 +28,9 @@ router.get("/cards", async (req, res) => {
             include: {
                 Users: {
                     select: {
-                        name: true
+                        name: true,
+                        email: true,
+                        id: true,
                     }
                 }},
         });
@@ -38,6 +40,8 @@ router.get("/cards", async (req, res) => {
             card_number: card.card_number,
             status: card.status,
             holder_name: card.Users.name,
+            holder_email: card.Users.email,
+            holder_id: card.Users.id,
             balance: card.balance,
             dueDate: card.dueDate,
         }));
@@ -96,6 +100,72 @@ router.post("/cards/confirm", async (req, res) => {
         }
     } catch (error) {
         console.error("Помилка підтвердження/відхилення картки:", error);
+        res.status(500).json({ error: "Помилка сервера." });
+    }
+});
+
+router.get("/cards/renewal-requests", async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const admin = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!admin || admin.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const renewalRequests = await prisma.cards.findMany({
+            where: { status: Cards.renewal_pending },
+            include: { Users: { select: { name: true, id: true, email: true } } },
+        });
+
+        const formattedRequests = renewalRequests.map(card => ({
+            id: card.id,
+            card_number: card.card_number,
+            status: card.status,
+            holder_name: card.Users.name,
+            holder_email: card.Users.email,
+            holder_id: card.Users.id,
+            balance: card.balance,
+            dueDate: card.dueDate,
+        }));
+        res.status(200).json(formattedRequests);
+    } catch (error) {
+        console.error("Помилка отримання запитів на поновлення карток:", error);
+        res.status(500).json({ error: "Помилка сервера." });
+    }
+});
+
+// Нове: підтвердження поновлення картки адміністратором
+router.post("/cards/approve-renewal/:cardId", async (req, res) => {
+    const { cardId } = req.params;
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const admin = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!admin || admin.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const cardToApprove = await prisma.cards.findUnique({
+            where: { id: parseInt(cardId) }
+        });
+
+        if (!cardToApprove) {
+            return res.status(404).json({ error: "Картку для підтвердження поновлення не знайдено." });
+        }
+
+        if (cardToApprove.status !== Cards.renewal_pending) {
+            return res.status(400).json({ error: `Ця картка не очікує підтвердження поновлення. Поточний статус: ${cardToApprove.status}` });
+        }
+
+        const approvedCard = await prisma.cards.update({
+            where: { id: parseInt(cardId) },
+            data: { status: Cards.active }
+        });
+
+        res.status(200).json({ message: "Поновлення картки успішно підтверджено.", card: approvedCard });
+    } catch (error) {
+        console.error("Помилка підтвердження поновлення картки:", error);
         res.status(500).json({ error: "Помилка сервера." });
     }
 });

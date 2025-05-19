@@ -13,33 +13,54 @@
       <p>Не вдалося завантажити дані користувача.</p> </div>
 
     <h2>Ваша картка</h2>
-    <div v-if="isLoadingCard">
-      <p>Завантаження даних картки...</p>
-    </div>
+    <div v-if="isLoadingCard"><p>Завантаження даних картки...</p></div>
     <div v-else-if="activeCard && user">
       <BankCard
           :card-number="activeCard.card_number"
           :card-holder-name="user.name"
-          :cvv="activeCard.cvv" :expiry-date="activeCard.dueDate"
+          :cvv="activeCard.cvv"
+          :expiry-date="activeCard.dueDate"
           :balance="activeCard.balance"
-      />
-      <button @click="openTransferModal" class="action-button transfer-button">
-        Переказати кошти
-      </button>
+          :status="activeCard.status" />
+      <div class="card-actions" v-if="activeCard">
+        <button
+            v-if="activeCard.status === 'active'"
+            @click="openTransferModal"
+            class="action-button transfer-button">
+          Переказати кошти
+        </button>
+        <button
+            v-if="activeCard.status === 'expired'"
+            @click="openRenewCardModal"
+            class="action-button renew-button">
+          Поновити картку
+        </button>
+        <p v-if="activeCard.status === 'renewal_pending'" class="status-message pending">
+          Ваша картка очікує підтвердження поновлення адміністратором. Номер: ...{{ activeCard.card_number.slice(-4) }}, дійсна до: {{ activeCard.dueDate }}.
+        </p>
+        <p v-if="activeCard.status === 'expired'" class="status-message error">
+          Термін дії вашої картки закінчився. Будь ласка, поновіть її.
+        </p>
+        <p v-if="activeCard.status === 'blocked'" class="status-message error">
+          Ваша картка заблокована. Зверніться до підтримки.
+        </p>
+        <p v-if="activeCard.status === 'waiting'" class="status-message pending">
+          Ваша картка очікує первинної активації адміністратором.
+        </p>
+      </div>
     </div>
     <div v-else>
-      <p>У вас немає активних карток або не вдалося завантажити дані картки.</p>
+      <p>У вас немає активних карток або не вдалося завантажити дані картки. <router-link to="/open-card">Відкрити картку?</router-link></p>
     </div>
 
     <div v-if="showTransferModal" class="modal-overlay" @click.self="closeTransferModal">
       <div class="modal-content">
-        <div class="close-icon" @click="closeTransferModal">×</div>
+        <span class="close-icon" @click="closeTransferModal">&times;</span>
         <h3>Переказ коштів з картки</h3>
         <div v-if="activeCard" class="transfer-from-info">
           <p>З картки: ...{{ activeCard.card_number.slice(-4) }}</p>
           <p>Поточний баланс: {{ activeCard.balance.toFixed(2) }} UAH</p>
         </div>
-
         <form @submit.prevent="handleTransferSubmit">
           <div class="form-group">
             <label for="receiverCardNumber">Номер картки отримувача:</label>
@@ -57,23 +78,77 @@
             <label for="senderPIN">Ваш PIN-код картки:</label>
             <input type="password" id="senderPIN" v-model.trim="transferData.senderPIN" placeholder="XXXX" maxlength="4" required />
           </div>
-
-          <div v-if="transferError" class="error-message">
-            {{ transferError }}
-          </div>
-          <div v-if="transferSuccessMessage" class="success-message">
-            {{ transferSuccessMessage }}
-          </div>
-
-          <div class="form-group">
-            <button type="submit" class="submit-button" :disabled="transferLoading">
-              {{ transferLoading ? 'Обробка...' : 'Переказати' }}
-            </button>
-          </div>
+          <div v-if="transferError" class="error-message">{{ transferError }}</div>
+          <div v-if="transferSuccessMessage" class="success-message">{{ transferSuccessMessage }}</div>
+          <button type="submit" class="submit-button" :disabled="transferLoading">
+            {{ transferLoading ? 'Обробка...' : 'Переказати' }}
+          </button>
         </form>
       </div>
     </div>
 
+    <div v-if="showRenewCardModal" class="modal-overlay" @click.self="closeRenewCardModal">
+      <div class="modal-content">
+        <span class="close-icon" @click="closeRenewCardModal">&times;</span>
+        <h3>Поновлення картки</h3>
+        <p>Для поновлення картки, будь ласка, встановіть новий 4-значний PIN-код. Номер картки, CVV та термін дії будуть оновлені автоматично.</p>
+        <form @submit.prevent="handleRenewCardSubmit">
+          <div class="form-group">
+            <label for="newPin">Новий PIN-код (4 цифри):</label>
+            <input type="password" id="newPin" v-model.trim="renewalData.newPin" placeholder="XXXX" maxlength="4" minlength="4" required />
+          </div>
+          <div v-if="renewalError" class="error-message">{{ renewalError }}</div>
+          <div v-if="renewalSuccessMessage" class="success-message">{{ renewalSuccessMessage }}</div>
+          <button type="submit" class="submit-button" :disabled="renewalLoading">
+            {{ renewalLoading ? 'Обробка...' : 'Запросити поновлення' }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="currency-converter-section compact">
+      <h2>Конвертер валют</h2>
+      <div v-if="isLoadingCurrencies" class="loading-message compact-loading">Завантаження списку валют...</div>
+      <div v-else-if="currencyApiError" class="error-message compact-error">{{ currencyApiError }}</div>
+      <form v-else @submit.prevent="handleCurrencyConversion" class="converter-form compact">
+        <div class="form-row compact-row">
+          <div class="form-group compact-group amount-group">
+            <label for="amountToConvert">Сума:</label>
+            <input type="number" id="amountToConvert" v-model.number="conversionRequest.amount" placeholder="100" step="any" min="0.01" required />
+          </div>
+          <div class="form-group compact-group currency-group">
+            <label for="sourceCurrency">З валюти:</label>
+            <select id="sourceCurrency" v-model="conversionRequest.from" required>
+              <option disabled value="">Обрати</option>
+              <option v-for="currencyCode in supportedCurrencies" :key="currencyCode" :value="currencyCode">
+                {{ currencyCode }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group compact-group currency-group">
+            <label for="targetCurrency">В валюту:</label>
+            <select id="targetCurrency" v-model="conversionRequest.to" required>
+              <option disabled value="">Обрати</option>
+              <option v-for="currencyCode in supportedCurrencies" :key="currencyCode" :value="currencyCode">
+                {{ currencyCode }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group compact-group button-group">
+            <button type="submit" class="submit-button convert-button compact-button" :disabled="isLoadingConversion">
+              {{ isLoadingConversion ? '...' : 'Конверт.' }}
+            </button>
+          </div>
+        </div>
+      </form>
+      <div v-if="conversionResult.convertedAmount !== null && !conversionResult.error" class="conversion-result compact-result">
+        <p><strong>{{ conversionResult.originalAmount }} {{ conversionRequest.from }} ≈ {{ conversionResult.convertedAmount.toFixed(2) }} {{ conversionRequest.to }}</strong></p>
+        <p v-if="conversionResult.rate" class="rate-info compact-rate">(1 {{ conversionRequest.from }} ≈ {{ conversionResult.rate.toFixed(4) }} {{ conversionRequest.to }} станом на {{ conversionResult.date }})</p>
+      </div>
+      <div v-if="conversionResult.error" class="error-message conversion-error-display compact-error">
+        {{ conversionResult.error }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -95,20 +170,48 @@ export default {
       showTransferModal: false,
       transferData:{
         receiverCardNumber:'',
-        amount:'',
+        amount: null,
         senderCVV:'',
         senderPIN:'',
       },
       transferError: null,
       transferSuccessMessage: null,
       transferLoading: false,
+      showRenewCardModal: false,
+      renewalData:{
+        newPin: '',
+      },
+      renewalError: null,
+      renewalSuccessMessage: null,
+      renewalLoading: false,
+
+      // Дані для конвертера валют
+      supportedCurrencies: [],
+      allRates: {}, // Для зберігання курсів: { "USD": 39.50, ... }
+      nbuExchangeDate: null, // Дата курсів НБУ
+      isLoadingCurrencies: true,
+      currencyApiError: null,
+      conversionRequest: {
+        amount: null,
+        from: 'UAH',
+        to: 'USD',
+      },
+      conversionResult: {
+        originalAmount: null,
+        convertedAmount: null,
+        rate: null,
+        date: null,
+        error: null,
+      },
+      isLoadingConversion: false,
     };
   },
   async created() {
     await this.fetchUserData();
-    if (this.user && !this.transferSuccessMessage) {
+    if (this.user && !this.renewalSuccessMessage) {
       await this.fetchCardData();
     }
+    await this.fetchSupportedCurrenciesNBU(); // Використовуємо метод для НБУ
   },
   methods: {
     async fetchUserData() {
@@ -116,10 +219,7 @@ export default {
       this.user = null;
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          this.$router.push('/');
-          return;
-        }
+        if (!token) { this.$router.push('/'); return; }
         const headers = { Authorization: `Bearer ${token}` };
         const response = await axios.get('/api/profile', { headers });
         this.user = response.data;
@@ -127,201 +227,215 @@ export default {
         console.error("Помилка завантаження даних користувача:", error);
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
           localStorage.removeItem('token');
-          localStorage.removeItem('role');
-          localStorage.removeItem('userId');
           this.$router.push('/');
         }
-      } finally {
-        this.isLoadingUser = false;
-      }
+      } finally { this.isLoadingUser = false; }
     },
-
     async fetchCardData() {
       this.isLoadingCard = true;
-      this.activeCard = null;
       try {
         const token = localStorage.getItem('token');
-        if (!token || !this.user) {
-          this.isLoadingCard = false;
-          return;
-        }
-
+        if (!token || !this.user) { this.isLoadingCard = false; this.activeCard = null; return; }
         const headers = { Authorization: `Bearer ${token}` };
         const response = await axios.get('/api/cards/mycard', { headers });
-
-        if (response.data && response.data.card_number && response.data.cvv && response.data.status === 'active') {
+        if (response.data && response.data.id) {
           this.activeCard = response.data;
         } else {
           this.activeCard = null;
-
-          if (response.data && response.data.status !== 'active') {
-            console.log("Картка користувача не активна або дані неповні.");
-          }
         }
       } catch (error) {
-        if (error.response && error.response.status !== 404) {
-          console.error("Помилка завантаження даних картки:", error);
-        } else if (!error.response) {
-          console.error("Помилка завантаження даних картки:", error);
+        if (error.response && error.response.status === 404) {
+          this.activeCard = null;
+        } else {
+          console.error("Помилка завантаження даних картки:", error.message);
         }
-        this.activeCard = null;
-      } finally {
-        this.isLoadingCard = false;
-      }
+      } finally { this.isLoadingCard = false; }
     },
-
     openTransferModal() {
-      if (!this.activeCard) {
-        alert("У вас немає активної картки для здійснення переказу.");
+      if (!this.activeCard) { alert("Для здійснення переказу потрібна картка."); return; }
+      if (this.activeCard.status !== 'active') {
+        alert(`Перекази неможливі. Статус вашої картки: "${this.activeCard.status}".`);
         return;
       }
-      this.transferData = {
-        receiverCardNumber: '',
-        amount: null,
-        senderCVV: '',
-        senderPIN: ''
-      };
-      this.transferError = null;
-      this.transferSuccessMessage = null;
-      this.showTransferModal = true;
+      this.transferData = { receiverCardNumber: '', amount: null, senderCVV: '', senderPIN: '' };
+      this.transferError = null; this.transferSuccessMessage = null; this.showTransferModal = true;
     },
-    closeTransferModal() {
-      this.showTransferModal = false;
-    },
+    closeTransferModal() { this.showTransferModal = false; },
     formatReceiverCardNumber(event) {
-      const input = event.target;
-      const value = input.value;
-      const selectionStart = input.selectionStart;
-
-      let rawDigits = value.replace(/\D/g, '');
-
-      if (rawDigits.length > 16) {
-        rawDigits = rawDigits.substring(0, 16);
-      }
-
+      const input = event.target; let value = input.value.replace(/\D/g, '');
+      if (value.length > 16) value = value.substring(0, 16);
       let formattedValue = '';
-      for (let i = 0; i < rawDigits.length; i++) {
-        if (i > 0 && i % 4 === 0) {
-          formattedValue += ' ';
-        }
-        formattedValue += rawDigits[i];
+      for (let i = 0; i < value.length; i++) {
+        if (i > 0 && i % 4 === 0) formattedValue += ' ';
+        formattedValue += value[i];
       }
-
       this.transferData.receiverCardNumber = formattedValue;
-
       this.$nextTick(() => {
-        let newCursorPosition = selectionStart;
-
-        const originalCharsBeforeCursor = value.substring(0, selectionStart).replace(/\s/g, "").length;
+        let newCursorPosition = input.selectionStart;
+        const originalValue = input.value; // Збережемо оригінальне значення для порівняння
+        const originalCharsBeforeCursor = originalValue.substring(0, input.selectionStart).replace(/\s/g, "").length;
         let tempRawCharCount = 0;
         let finalPos = 0;
-        for(let i=0; i < formattedValue.length; i++) {
-          if(/\d/.test(formattedValue[i])) {
-            tempRawCharCount++;
-          }
-          finalPos++;
-          if(tempRawCharCount >= originalCharsBeforeCursor && originalCharsBeforeCursor > 0) break;
-          if(originalCharsBeforeCursor === 0 && i>= selectionStart) break;
-        }
 
-        if (value.length > formattedValue.length && selectionStart > formattedValue.length) {
-          newCursorPosition = formattedValue.length;
-        } else if (value.length < formattedValue.length && value.charAt(selectionStart - 1) !== ' ' && formattedValue.charAt(selectionStart) === ' ' && selectionStart < formattedValue.length) {
-          newCursorPosition = selectionStart + 1;
+        for(let i=0; i < formattedValue.length; i++) {
+          if(/\d/.test(formattedValue[i])) { tempRawCharCount++; }
+          finalPos++;
+          if(tempRawCharCount >= originalCharsBeforeCursor && originalCharsBeforeCursor > 0 ) {
+            // Якщо це пробіл, який ми додали, а користувач був перед ним, зсуваємо курсор
+            if (formattedValue[i] === ' ' && originalValue[finalPos-2] !== ' ') {
+              // Не робимо нічого особливого, finalPos вже правильний
+            }
+            break;
+          }
+          if(originalCharsBeforeCursor === 0 && i >= input.selectionStart) break;
+        }
+        // Корекція позиції, якщо видаляється пробіл
+        if (originalValue.length > formattedValue.length && originalValue.charAt(input.selectionStart -1) === ' ') {
+          newCursorPosition = input.selectionStart -1;
         } else {
-          newCursorPosition = finalPos > formattedValue.length ? formattedValue.length : finalPos;
+          newCursorPosition = finalPos;
         }
 
         newCursorPosition = Math.min(newCursorPosition, formattedValue.length);
         newCursorPosition = Math.max(0, newCursorPosition);
-
-        input.setSelectionRange(newCursorPosition, newCursorPosition);
+        try { input.setSelectionRange(newCursorPosition, newCursorPosition); } catch(e) { /* ігнор */ }
       });
     },
-
     async handleTransferSubmit() {
-      this.transferLoading = true;
-      this.transferError = null;
-      this.transferSuccessMessage = null;
-
+      this.transferLoading = true; this.transferError = null; this.transferSuccessMessage = null;
+      if (!this.activeCard || this.activeCard.status !== 'active') {
+        this.transferError = "Переказ неможливий: картка не активна."; this.transferLoading = false; return;
+      }
       const receiverCardNumberClean = this.transferData.receiverCardNumber.replace(/\s/g, '');
-
       if (!receiverCardNumberClean || !this.transferData.amount || !this.transferData.senderCVV || !this.transferData.senderPIN) {
-        this.transferError = "Будь ласка, заповніть всі поля.";
-        this.transferLoading = false;
-        return;
+        this.transferError = "Будь ласка, заповніть всі поля."; this.transferLoading = false; return;
       }
-
-      if (receiverCardNumberClean.length !== 16) {
-         this.transferError = "Номер картки отримувача повинен містити 16 цифр.";
-         this.transferLoading = false;
-        return;
-       }
-
-      if (this.transferData.amount <= 0) {
-        this.transferError = "Сума переказу повинна бути більшою за нуль.";
-        this.transferLoading = false;
-        return;
-      }
-      if (this.activeCard && this.transferData.amount > this.activeCard.balance) {
-        this.transferError = "Недостатньо коштів на вашому балансі.";
-        this.transferLoading = false;
-        return;
-      }
-
-      if (this.transferData.senderCVV.length !== 3) {
-        this.transferError = "CVV повинен містити 3 цифри.";
-        this.transferLoading = false;
-        return;
-      }
-      if (this.transferData.senderPIN.length !== 4) {
-        this.transferError = "PIN-код повинен містити 4 цифри.";
-        this.transferLoading = false;
-        return;
-      }
-
-      if (this.activeCard && receiverCardNumberClean === this.activeCard.card_number.replace(/\s/g, '')) {
-        this.transferError = "Неможливо переказати кошти на власну картку.";
-        this.transferLoading = false;
-        return;
-      }
+      if (receiverCardNumberClean.length !== 16) { this.transferError = "Номер картки отримувача повинен містити 16 цифр."; this.transferLoading = false; return; }
+      if (this.transferData.amount <= 0) { this.transferError = "Сума переказу повинна бути більшою за нуль."; this.transferLoading = false; return; }
+      if (this.activeCard.balance < this.transferData.amount) { this.transferError = "Недостатньо коштів на вашому балансі."; this.transferLoading = false; return; }
+      if (this.transferData.senderCVV.length !== 3) { this.transferError = "CVV повинен містити 3 цифри."; this.transferLoading = false; return; }
+      if (this.transferData.senderPIN.length !== 4) { this.transferError = "PIN-код повинен містити 4 цифри."; this.transferLoading = false; return; }
+      if (receiverCardNumberClean === this.activeCard.card_number.replace(/\s/g, '')) { this.transferError = "Неможливо переказати кошти на власну картку."; this.transferLoading = false; return; }
 
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          this.transferError = "Помилка автентифікації. Спробуйте увійти знову.";
-          this.transferLoading = false;
-          return;
-        }
+        if (!token) { this.transferError = "Помилка автентифікації."; this.transferLoading = false; return; }
         const headers = { Authorization: `Bearer ${token}` };
-
-        const payload = {
-          receiverCardNumber: receiverCardNumberClean,
-          amount: this.transferData.amount,
-          senderCVV: this.transferData.senderCVV,
-          senderPIN: this.transferData.senderPIN
-        };
-
+        const payload = { receiverCardNumber: receiverCardNumberClean, amount: this.transferData.amount, senderCVV: this.transferData.senderCVV, senderPIN: this.transferData.senderPIN };
         const response = await axios.post('/api/transactions/transfer', payload, { headers });
-
         this.transferSuccessMessage = response.data.message || "Переказ успішно виконано!";
         await this.fetchCardData();
-
-        setTimeout(() => {
-          this.closeTransferModal();
-          this.transferSuccessMessage = null;
-        }, 3000);
-
+        setTimeout(() => { this.closeTransferModal(); this.transferSuccessMessage = null; }, 3000);
       } catch (error) {
         this.transferError = error.response?.data?.error || "Помилка під час переказу.";
-        console.error("Помилка переказу:", error);
+      } finally { this.transferLoading = false; }
+    },
+    openRenewCardModal() {
+      this.renewalData = { newPin: '' }; this.renewalError = null;
+      this.renewalSuccessMessage = null; this.showRenewCardModal = true;
+    },
+    closeRenewCardModal() { this.showRenewCardModal = false; },
+    async handleRenewCardSubmit() {
+      this.renewalLoading = true; this.renewalError = null; this.renewalSuccessMessage = null;
+      if (!this.renewalData.newPin || this.renewalData.newPin.length !== 4 || isNaN(this.renewalData.newPin)) {
+        this.renewalError = "Будь ласка, введіть коректний 4-значний PIN."; this.renewalLoading = false; return;
+      }
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) { this.renewalError = "Помилка автентифікації."; this.renewalLoading = false; return; }
+        const headers = { Authorization: `Bearer ${token}` };
+        const payload = { newPin: this.renewalData.newPin };
+        const response = await axios.post('/api/cards/renew', payload, { headers });
+        this.renewalSuccessMessage = response.data.message || "Запит на поновлення картки прийнято!";
+        if (response.data.updatedCardPreview) {
+          this.activeCard = { ...this.activeCard, status: response.data.updatedCardPreview.status, card_number: response.data.updatedCardPreview.cardNumber, dueDate: response.data.updatedCardPreview.dueDate, };
+        } else { await this.fetchCardData(); }
+        setTimeout(() => { this.closeRenewCardModal(); }, 2500);
+      } catch (error) {
+        this.renewalError = error.response?.data?.error || "Помилка під час запиту на поновлення картки.";
       } finally {
-        this.transferLoading = false;
+        this.renewalLoading = false;
+      }
+    },
+    async fetchSupportedCurrenciesNBU() { // Змінено з fetchSupportedCurrencies
+      this.isLoadingCurrencies = true;
+      this.currencyApiError = null;
+      this.allRates = {};
+      try {
+        const response = await axios.get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
+        if (response.data && Array.isArray(response.data)) {
+          response.data.forEach(currency => {
+            this.allRates[currency.cc] = currency.rate;
+          });
+          this.allRates['UAH'] = 1.0;
+          this.supportedCurrencies = Object.keys(this.allRates).sort();
+          if (response.data.length > 0) {
+            this.nbuExchangeDate = response.data[0].exchangedate;
+          }
+
+          if (!this.supportedCurrencies.includes(this.conversionRequest.from)) {
+            this.conversionRequest.from = this.supportedCurrencies.includes('UAH') ? 'UAH' : (this.supportedCurrencies[0] || '');
+          }
+          if (!this.supportedCurrencies.includes(this.conversionRequest.to)) {
+            let defaultTarget = this.supportedCurrencies.includes('USD') ? 'USD' : '';
+            if (!defaultTarget || defaultTarget === this.conversionRequest.from) {
+              defaultTarget = this.supportedCurrencies.find(c => c !== this.conversionRequest.from) || (this.supportedCurrencies[0] || '');
+            }
+            this.conversionRequest.to = defaultTarget;
+          }
+          if (this.conversionRequest.from === this.conversionRequest.to && this.supportedCurrencies.length > 1) {
+            this.conversionRequest.to = this.supportedCurrencies.find(c => c !== this.conversionRequest.from) || this.supportedCurrencies[1] || this.supportedCurrencies[0];
+          }
+        } else {
+          throw new Error("Некоректний формат відповіді від API курсів валют.");
+        }
+      } catch (error) {
+        console.error("Помилка завантаження списку валют НБУ:", error);
+        this.currencyApiError = "Не вдалося завантажити курси валют. Спробуйте пізніше.";
+        this.supportedCurrencies = ['UAH', 'USD', 'EUR', 'PLN']; // Fallback у випадку помилки
+        this.allRates = {'UAH': 1.0, 'USD': 40.0, 'EUR': 43.0, 'PLN': 10.0}; // Приблизні fallback курси
+        this.nbuExchangeDate = new Date().toLocaleDateString('uk-UA');
+      } finally {
+        this.isLoadingCurrencies = false;
+      }
+    },
+    async handleCurrencyConversion() {
+      const { amount, from, to } = this.conversionRequest;
+      if (!amount || !from || !to) {
+        this.conversionResult = { ...this.conversionResult, error: "Будь ласка, заповніть всі поля.", convertedAmount: null, originalAmount: amount };
+        return;
+      }
+      if (amount <= 0) {
+        this.conversionResult = { ...this.conversionResult, error: "Сума повинна бути більшою за нуль.", convertedAmount: null, originalAmount: amount };
+        return;
+      }
+      if (from === to) {
+        this.conversionResult = { ...this.conversionResult, error: "Валюти мають бути різними.", convertedAmount: null, originalAmount: amount };
+        return;
+      }
+      this.isLoadingConversion = true;
+      this.conversionResult = { originalAmount: amount, convertedAmount: null, rate: null, date: this.nbuExchangeDate, error: null };
+      try {
+        const rateFrom = this.allRates[from];
+        const rateTo = this.allRates[to];
+        if (typeof rateFrom === 'undefined' || typeof rateTo === 'undefined') {
+          throw new Error("Обрані валюти не підтримуються або курси для них не знайдено.");
+        }
+        let amountInUAH = (from === 'UAH') ? parseFloat(amount) : parseFloat(amount) * rateFrom;
+        let finalConvertedAmount = (to === 'UAH') ? amountInUAH : amountInUAH / rateTo;
+        this.conversionResult.convertedAmount = finalConvertedAmount;
+        if (amount !== 0) {
+          this.conversionResult.rate = finalConvertedAmount / amount;
+        }
+      } catch (error) {
+        console.error("Помилка конвертації валюти (НБУ):", error);
+        this.conversionResult.error = error.message || "Помилка під час конвертації.";
+      } finally {
+        this.isLoadingConversion = false;
       }
     }
   }
 };
-
 </script>
 
 <style scoped>
@@ -329,34 +443,36 @@ export default {
 .page {
   text-align: center;
   padding: 20px;
-  max-width: 800px;
+  max-width: 800px; /* Збільшено для кращого розміщення конвертера */
   margin: 0 auto;
 }
-
 h1 {
   font-size: 28px;
   margin-bottom: 20px;
   color: #ffffff;
 }
-
 h2 {
   font-size: 22px;
   margin-top: 30px;
   margin-bottom: 15px;
   color: #e0e0e0;
 }
-
 .user-info p {
   font-size: 16px;
   color: #cfd8dc;
   margin-bottom: 10px;
   line-height: 1.6;
 }
-
 .user-info strong {
   color: #b0bec5;
 }
-
+.card-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
 .action-button {
   background-color: #42b983;
   color: #ffffff;
@@ -367,7 +483,18 @@ h2 {
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  margin-top: 20px;
+  margin-top: 0; /* Забрав margin-top звідси, бо він був у .card-actions */
+  min-width: 200px;
+}
+.action-button.transfer-button { /* Якщо треба специфічний стиль для кнопки переказу */
+  margin-top: 20px; /* Повертаємо для першої кнопки, якщо вона одна */
+}
+
+.action-button.renew-button {
+  background-color: #f0ad4e;
+}
+.action-button.renew-button:hover {
+  background-color: #ec971f;
 }
 .action-button:hover {
   background-color: #369966;
@@ -376,147 +503,200 @@ h2 {
   background-color: #555;
   cursor: not-allowed;
 }
+.status-message {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+  max-width: 400px; /* Обмежимо ширину повідомлень */
+  margin-left: auto;
+  margin-right: auto;
+}
+.status-message.pending {
+  background-color: rgba(240, 173, 78, 0.2);
+  color: #f0ad4e;
+  border: 1px solid #f0ad4e;
+}
+.status-message.error {
+  background-color: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+}
 
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1050;
-  padding: 15px;
+  position: fixed; top: 0; left: 0; height: 100%; width: 100%;
+  background: rgba(0, 0, 0, 0.8); display: flex; justify-content: center;
+  align-items: center; z-index: 1050; padding: 15px;
 }
-
 .modal-content {
-  background-color: #1e1e1e;
-  color: #ffffff;
-  width: 100%;
-  max-width: 450px;
-  padding: 25px 30px;
+  background-color: #1e1e1e; color: #ffffff; width: 100%; max-width: 450px;
+  padding: 25px 30px; border-radius: 8px; box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+  position: relative; text-align: left;
+}
+.modal-content h3 { color: #42b983; margin-bottom: 20px; text-align: center; font-size: 20px;}
+.close-icon {
+  position: absolute; top: 10px; right: 15px; font-size: 28px; color: #aaa;
+  cursor: pointer; transition: color 0.3s ease; line-height: 1;
+}
+.close-icon:hover { color: #fff; }
+.transfer-from-info {
+  margin-bottom: 20px; padding: 10px; background-color: #2a2a2a;
+  border-radius: 5px; font-size: 14px;
+}
+.transfer-from-info p { margin: 5px 0; color: #ccc;}
+.form-group {
+  margin-bottom: 18px;
+  text-align: left; /* Для label всередині form-group */
+}
+.form-group label {
+  display: block; margin-bottom: 8px; color: #cfd8dc;
+  font-size: 14px; font-weight: 500;
+}
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="password"],
+.form-group select { /* Додано select сюди */
+  width: 100%; padding: 12px 15px; border: 1px solid #444;
+  border-radius: 5px; background-color: #333; color: #fff;
+  box-sizing: border-box; font-size: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group input[type="password"]:focus,
+.form-group select:focus { /* Додано select сюди */
+  border-color: #42b983; box-shadow: 0 0 0 2px rgba(66,185,131,0.3); outline: none;
+}
+.form-group input::placeholder { color: #777; }
+
+.submit-button { /* Загальний стиль для submit кнопок */
+  background-color: #42b983; padding: 12px 20px; color: #fff; border: none;
+  border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;
+  transition: background-color 0.3s ease; width: 100%;
+  /* margin-top: 10px; -- прибрано, якщо не потрібно для всіх кнопок submit */
+}
+.submit-button:hover { background-color: #369966; }
+.submit-button:disabled { background-color: #555; cursor: not-allowed; }
+
+.error-message { /* Загальний стиль для повідомлень про помилки */
+  color: #ff6b6b; background-color: rgba(255,107,107,0.1);
+  border: 1px solid rgba(255,107,107,0.3); padding: 10px;
+  border-radius: 5px; margin-bottom: 15px; font-size: 14px; text-align: center;
+}
+.success-message { /* Загальний стиль для повідомлень про успіх */
+  color: #42b983; background-color: rgba(66,185,131,0.1);
+  border: 1px solid rgba(66,185,131,0.3); padding: 10px;
+  border-radius: 5px; margin-bottom: 15px; font-size: 14px; text-align: center;
+}
+/* Стилі для конвертера валют з урахуванням компактності та вужчого блоку */
+.currency-converter-section.compact {
+  max-width: 550px; /* Зробимо блок конвертера вужчим */
+  margin-left: auto;   /* Центрування блоку */
+  margin-right: auto;  /* Центрування блоку */
+  margin-top: 30px;
+  padding: 20px;
+  background-color: rgb(55, 55, 55, 0.5);
+  border: 1px solid #444;
   border-radius: 8px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-  position: relative;
-  text-align: left;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 
-.modal-content h3 {
-  color: #42b983;
+.currency-converter-section.compact h2 {
   margin-bottom: 20px;
-  text-align: center;
   font-size: 20px;
 }
 
-.close-icon {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  font-size: 28px;
-  color: #aaa;
-  cursor: pointer;
-  transition: color 0.3s ease;
-  line-height: 1;
+.converter-form.compact {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.close-icon:hover {
-  color: #fff;
+.converter-form.compact .form-row.compact-row {
+  display: flex;
+  flex-wrap: wrap; /* Дозволяємо перенос для вужчого контейнера */
+  gap: 10px;
+  align-items: flex-end;
 }
 
-.transfer-from-info {
-  margin-bottom: 20px;
-  padding: 10px;
-  background-color: #2a2a2a;
-  border-radius: 5px;
-  font-size: 14px;
+.converter-form.compact .form-group.compact-group {
+  margin-bottom: 0;
+  flex-grow: 1;
+  flex-shrink: 1; /* Дозволяємо зменшуватися */
+}
+.converter-form.compact .form-group.compact-group.amount-group {
+  flex-basis: calc(50% - 5px); /* Наприклад, сума займає половину мінус gap */
+  min-width: 120px;
+}
+.converter-form.compact .form-group.compact-group.currency-group {
+  flex-basis: calc(50% - 5px); /* Селекти також по половині */
+  min-width: 100px;
+}
+.converter-form.compact .form-group.compact-group.button-group {
+  flex-basis: 100%; /* Кнопка на всю ширину, якщо перенеслася */
+  margin-top: 10px; /* Відступ, якщо кнопка на новому рядку */
 }
 
-.transfer-from-info p {
-  margin: 5px 0;
-  color: #ccc;
+
+.converter-form.compact label {
+  font-size: 13px;
+  margin-bottom: 5px;
 }
 
-.form-group {
-  margin-bottom: 18px;
+.converter-form.compact input[type="number"],
+.converter-form.compact select {
+  padding: 8px 10px;
+  font-size: 15px;
+  height: 38px; /* Трохи менша висота */
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #cfd8dc;
-  font-size: 14px;
-  font-weight: 500;
+.converter-form.compact .convert-button.compact-button {
+  padding: 8px 10px; /* Зменшено відступи кнопки */
+  font-size: 15px;
+  height: 38px;
+  line-height: normal; /* Або 1.2 для кращого центрування */
+  width: 100%; /* Кнопка займає доступну ширину в button-group */
 }
 
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group input[type="password"] {
-  width: 100%;
-  padding: 12px 15px;
-  border: 1px solid #444;
-  border-radius: 5px;
-  background-color: #333;
-  color: #fff;
-  box-sizing: border-box;
-  font-size: 16px;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+.conversion-result.compact-result {
+  margin-top: 15px; /* Зменшено відступ */
+  padding: 8px 10px;
+}
+.conversion-result.compact-result p {
+  font-size: 0.95em; /* Менший шрифт */
+  margin: 4px 0;
+}
+.conversion-result.compact-result strong {
+  font-size: 1.05em;
+}
+.conversion-result.compact-result .rate-info.compact-rate {
+  font-size: 0.75em;
 }
 
-.form-group input[type="text"]:focus,
-.form-group input[type="number"]:focus,
-.form-group input[type="password"]:focus {
-  border-color: #42b983;
-  box-shadow: 0 0 0 2px rgba(66, 185, 131, 0.3);
-  outline: none;
-}
-
-.form-group input::placeholder {
-  color: #777;
-}
-
-.submit-button {
-  background-color: #42b983;
-  padding: 12px 20px;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
-  width: 100%;
+.loading-message.compact-loading,
+.error-message.compact-error {
+  padding: 8px;
+  font-size: 0.9em;
   margin-top: 10px;
 }
-.submit-button:hover {
-  background-color: #369966;
-}
-.submit-button:disabled {
-  background-color: #555;
-  cursor: not-allowed;
+.conversion-error-display.compact-error {
+  margin-top: 10px;
 }
 
-.error-message {
-  color: #ff6b6b;
-  background-color: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
-  font-size: 14px;
-  text-align: center;
+@media (max-width: 480px) { /* Змінив брейкпойнт */
+  .converter-form.compact .form-row.compact-row {
+    flex-direction: column; /* Все в стовпчик на дуже малих екранах */
+    align-items: stretch; /* Розтягуємо елементи на всю ширину */
+  }
+  .converter-form.compact .form-group.compact-group {
+    flex-basis: auto; /* Займають всю доступну ширину */
+    width: 100%;
+  }
+  .converter-form.compact .form-group.compact-group.button-group {
+    margin-top: 15px;
+  }
+  .converter-form.compact .convert-button.compact-button {
+    width: 100%;
+  }
 }
-
-.success-message {
-  color: #42b983;
-  background-color: rgba(66, 185, 131, 0.1);
-  border: 1px solid rgba(66, 185, 131, 0.3);
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
-  font-size: 14px;
-  text-align: center;
-}
-
 </style>

@@ -3,7 +3,8 @@
     <h1>Адміністративна панель</h1>
     <p>Ласкаво просимо, {{ user.name }}!</p>
     <div class="actions">
-      <router-link to="/admin/cards">Картки для підтвердження</router-link>
+      <router-link to="/admin/cards" class="action-link">Картки для підтвердження (Нові)</router-link>
+      <router-link to="/admin/card-renewal-requests" class="action-link">Запити на поновлення карток</router-link>
       <router-link to="/admin/chat" class="action-link">Підтримка (Чати)</router-link>
     </div>
   </div>
@@ -26,8 +27,11 @@ export default {
     async checkUserRole() {
       try {
         const token = localStorage.getItem("token");
+        if (!token) {
+          this.$router.push("/");
+          return;
+        }
         const headers = { Authorization: `Bearer ${token}` };
-
         const response = await axios.get("/api/profile", { headers });
 
         if (response.data.role === "ADMIN") {
@@ -36,9 +40,9 @@ export default {
           this.$router.push("/profile");
         }
       } catch (error) {
+        localStorage.removeItem('token');
         this.$router.push("/");
-        console.error("Error in checkUserRole:", error);
-        alert("Помилка при перевірці ролі: " + (error.response?.data?.error || error.message || "Невідома помилка"));
+        console.error("Error in checkUserRole (AdminProfileView):", error);
       }
     },
   },

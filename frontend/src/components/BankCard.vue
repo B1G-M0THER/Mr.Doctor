@@ -1,5 +1,8 @@
 <template>
-  <div class="card-container" @click="flipCard" :class="{ 'flipped': isFlipped }">
+  <div class="card-container" @click="tryFlipCard" :class="{ 'flipped': isFlipped, 'disabled-card': isDisabled }">
+    <div class="card-overlay" v-if="isExpired || isRenewalPending">
+      <span class="overlay-text">{{ cardOverlayText }}</span>
+    </div>
     <div class="card">
       <div class="card-front">
         <div class="bank-logo">YB</div>
@@ -13,7 +16,7 @@
         </div>
         <div class="card-bottom">
           <div class="card-holder">{{ cardHolderName }}</div>
-          <div class="card-expiry">{{ expiryDate }}</div>
+          <div class="card-expiry">{{ expiryDate }} {{ status === 'expired' ? '(Термін дії вийшов)' : '' }}</div>
         </div>
         <div v-if="showCopySuccess" class="copy-success-notification">
           Скопійовано!
@@ -60,6 +63,10 @@ export default {
     balance: {
       type: Number,
       default: 0
+    },
+    status: {
+      type: String,
+      default: 'active',
     }
   },
   data() {
@@ -79,7 +86,6 @@ export default {
       }
 
       if (this.isCardNumberMasked) {
-
         const firstFour = numStr.substring(0, 4);
         const lastFour = numStr.substring(numStr.length - 4);
         const middleBlocksCount = Math.floor((numStr.length - 8) / 4);
@@ -101,10 +107,33 @@ export default {
 
     formattedBalance() {
       return this.balance.toFixed(2) + ' UAH';
+    },
+
+    isExpired() {
+      return this.status === 'expired'; // Використовуємо константу, якщо імпортували: CardStatuses.expired
+    },
+    isRenewalPending() {
+      return this.status === 'renewal_pending'; // CardStatuses.renewal_pending
+    },
+    isDisabled() {
+      return this.isExpired || this.isRenewalPending;
+    },
+    cardOverlayText() {
+      if (this.isExpired) return 'ПРОСТРОЧЕНА';
+      if (this.isRenewalPending) return 'ОЧІКУЄ ПОНОВЛЕННЯ';
+      return '';
     }
 
   },
   methods: {
+
+    tryFlipCard() {
+      if (this.isDisabled) {
+        return;
+      }
+      this.flipCard();
+    },
+
     flipCard() {
       if (this.isCvvRevealed) {
         this.isCvvRevealed = false;
@@ -112,9 +141,11 @@ export default {
       if (!this.isCardNumberMasked) { this.isCardNumberMasked = true; }
       this.isFlipped = !this.isFlipped;
     },
+
     toggleCvvBlur() {
       this.isCvvRevealed = !this.isCvvRevealed;
     },
+
     toggleCardMask() {
       this.isCardNumberMasked = !this.isCardNumberMasked;
     },
@@ -134,10 +165,17 @@ export default {
         }, 2000);
       } catch (err) {
         console.error('Помилка копіювання номера картки: ', err);
-        alert('Не вдалося скопіювати номер картки.');
+      }
+    }
+  },
+  watch: {
+    status(newStatus) {
+      if ((newStatus === 'expired' || newStatus === 'renewal_pending') && this.isFlipped) {
+        this.isFlipped = false;
       }
     }
   }
+
 };
 </script>
 
@@ -158,6 +196,11 @@ body {
   perspective: 1000px;
   cursor: pointer;
   margin: 20px auto;
+  position: relative;
+}
+
+.card-container.disabled-card {
+  cursor: not-allowed;
 }
 
 .card {
@@ -323,6 +366,37 @@ body {
 
 .cvv.cvv-blurred {
   filter: blur(3px);
+}
+
+/* Нове: стилі для оверлея простроченої/очікуючої картки */
+.card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6); /* Напівпрозорий темний фон */
+  border-radius: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 5; /* Має бути вище за .card-front та .card-back, але нижче за .card-container */
+  pointer-events: all; /* Щоб блокувати кліки на саму картку, але дозволяти на контейнер */
+  text-decoration: line-through; /* Перекреслення для тексту під оверлеєм */
+  text-decoration-color: rgba(255, 82, 82, 0.7);
+  text-decoration-thickness: 3px;
+}
+
+.overlay-text {
+  color: #ff5252; /* Червоний колір для тексту статусу */
+  font-size: 24px;
+  font-weight: bold;
+  padding: 10px 20px;
+  background-color: rgba(26, 26, 26, 0.8);
+  border-radius: 8px;
+  text-align: center;
+  text-decoration: none; /* Забираємо перекреслення з самого тексту оверлея */
+  border: 1px solid #ff5252;
 }
 </style>
 
