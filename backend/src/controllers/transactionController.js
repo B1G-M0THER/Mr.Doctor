@@ -1,5 +1,6 @@
 import prisma from "../config/prisma.js";
 import CardStatuses from "../constants/cards.js";
+import { checkAndHandleCardExpiry } from './cardController.js';
 
 export const performCardTransfer = async (req, res) => {
     const senderUserId = req.userId;
@@ -34,15 +35,33 @@ export const performCardTransfer = async (req, res) => {
     try {
         const result = await prisma.$transaction(async (tx) => {
 
-            const senderCard = await tx.cards.findFirst({
+            let senderCard = await tx.cards.findFirst({
                 where: {
                     holder_id: senderUserId,
-                    status: CardStatuses.active,
                 },
             });
 
             if (!senderCard) {
-                throw { status: 404, message: "Активну картку відправника не знайдено або вона неактивна." };
+                throw { status: 404, message: "Картку відправника не знайдено." };
+            }
+
+            senderCard = await checkAndHandleCardExpiry(senderCard);
+
+
+            if (senderCard.status === CardStatuses.expired) {
+                throw { status: 403, message: "Операція неможлива: термін дії вашої картки закінчився. Будь ласка, поновіть картку." };
+            }
+            if (senderCard.status === CardStatuses.renewal_pending) {
+                throw { status: 403, message: "Операція неможлива: ваша картка очікує підтвердження поновлення адміністратором." };
+            }
+            if (senderCard.status === CardStatuses.blocked) {
+                throw { status: 403, message: "Операція неможлива: ваша картка заблокована." };
+            }
+            if (senderCard.status === CardStatuses.waiting) {
+                throw { status: 403, message: "Операція неможлива: ваша картка ще не активована адміністратором." };
+            }
+            if (senderCard.status !== CardStatuses.active) {
+                throw { status: 403, message: `Операція неможлива: статус вашої картки "${senderCard.status}".` };
             }
 
             if (senderCard.pin !== pin) {
@@ -107,9 +126,12 @@ export const performCardTransfer = async (req, res) => {
 
     } catch (error) {
         console.error("Помилка під час переказу коштів:", error);
-        if (error.status) {
+        if (error.status && error.message) {
             res.status(error.status).json({ error: error.message });
-        } else {
+        } else if (error.message) {
+            res.status(500).json({ error: error.message });
+        }
+        else {
             res.status(500).json({ error: "Внутрішня помилка сервера під час обробки переказу." });
         }
     }

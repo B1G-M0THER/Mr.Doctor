@@ -10,6 +10,7 @@ import AdminProfileView from '../views/AdminProfileView.vue';
 import AdminCardApproval from '../views/AdminCardApproval.vue';
 import {adminGuard, authGuard} from "../middleware/auth.js"
 import AdminChatView from '../views/AdminChatView.vue';
+import AdminCardRenewalView from "../views/AdminCardRenewalView.vue";
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
@@ -21,6 +22,7 @@ const routes = [
   { path: '/admin', name: 'AdminProfile', component: AdminProfileView, beforeEnter: adminGuard },
   { path: '/admin/cards', name: 'AdminCardApproval', component: AdminCardApproval, beforeEnter: adminGuard },
   { path: '/admin/chat', name: 'AdminChat', component: AdminChatView, beforeEnter: adminGuard },
+  { path: '/admin/card-renewal-requests', name: 'AdminCardRenewalRequests', component: AdminCardRenewalView, beforeEnter: adminGuard},
 ];
 
 const router = createRouter({
