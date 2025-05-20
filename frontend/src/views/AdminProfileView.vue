@@ -5,6 +5,7 @@
     <div class="actions">
       <router-link to="/admin/cards" class="action-link">Картки для підтвердження (Нові)</router-link>
       <router-link to="/admin/card-renewal-requests" class="action-link">Запити на поновлення карток</router-link>
+      <router-link to="/admin/loan-applications" class="action-link">Заявки на Кредит</router-link>
       <router-link to="/admin/chat" class="action-link">Підтримка (Чати)</router-link>
     </div>
   </div>

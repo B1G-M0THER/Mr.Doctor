@@ -3,6 +3,7 @@ const Loans = {
     closed: "closed",
     unpaid: "unpaid",
     waiting: "waiting",
+    rejected: "rejected",
 }
 
 export default Loans;
