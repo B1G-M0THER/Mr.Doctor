@@ -41,8 +41,30 @@ model Loans {
   term          Int
   status        String @default("waiting")
   created_at    DateTime @default(now())
+  monthly_payment_amount Float?
+  outstanding_principal  Float?
+  paid_amount            Float?   @default(0)
+  next_payment_due_date  DateTime?
+  last_payment_date      DateTime?
+  activated_at           DateTime?
 
   Users         Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  LoanPayments  LoanPayment[]
+  }
+
+model LoanPayment {
+  id              Int      @id @default(autoincrement())
+  loan_id         Int
+  payment_date    DateTime @default(now())
+  amount_paid     Float
+  principal_paid  Float
+  interest_paid   Float
+  outstanding_principal_after_payment Float
+  notes           String?
+
+  Loan            Loans    @relation(fields: [loan_id], references: [id], onDelete: Cascade)
+
+  @@index([loan_id])
 }
 
 model Deposits {

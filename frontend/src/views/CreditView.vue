@@ -6,11 +6,22 @@
       Заповніть форму нижче, і ми розглянемо вашу заявку.
     </p>
 
-    <div v-if="!isLoggedIn" class="auth-warning">
+    <div v-if="!isLoggedIn" class="auth-warning prominent-warning">
       <p>Для подання заявки на кредит, будь ласка, <router-link to="/">увійдіть</router-link> в систему.</p>
     </div>
 
-    <form v-else @submit.prevent="submitLoanApplication" class="loan-form">
+    <div v-else-if="isLoadingCardDetails" class="loading-message page-loading">
+      <p>Перевірка статусу вашої картки...</p>
+    </div>
+    <div v-else-if="cardMessage" class="auth-warning prominent-warning">
+      <p>{{ cardMessage }}</p>
+      <p v-if="!userCard || userCard.status !== 'active'">
+        <router-link v-if="!userCard" to="/open-card">Відкрити картку</router-link>
+        <router-link v-else to="/profile">Перейти до профілю</router-link>
+      </p>
+    </div>
+
+    <form v-else-if="canApplyForLoan" @submit.prevent="submitLoanApplication" class="loan-form">
       <div class="form-group">
         <label for="loanAmount">Бажана сума кредиту (UAH):</label>
         <input type="number" id="loanAmount" v-model.number="loanData.amount" placeholder="Наприклад, 10000" min="1000" max="1000000" step="100" required />
@@ -35,7 +46,7 @@
         {{ submissionSuccessMessage }}
       </div>
 
-      <button type="submit" class="submit-button" :disabled="isLoading || !isLoggedIn">
+      <button type="submit" class="submit-button" :disabled="isLoading || !canApplyForLoan">
         {{ isLoading ? 'Обробка...' : 'Подати заявку' }}
       </button>
     </form>
@@ -62,14 +73,68 @@ export default {
     const submissionError = ref(null);
     const submissionSuccessMessage = ref(null);
     const isLoggedIn = ref(false);
+    const userCard = ref(null);
+    const isLoadingCardDetails = ref(false);
+    const cardError = ref(null);
 
-    const checkLoginStatus = () => {
+    const checkLoginAndCardStatus = async () => {
       const token = localStorage.getItem('token');
       isLoggedIn.value = !!token;
+
+      if (isLoggedIn.value) {
+        isLoadingCardDetails.value = true;
+        cardError.value = null;
+        userCard.value = null;
+        try {
+          const headers = { Authorization: `Bearer ${token}` };
+          const response = await axios.get('/api/cards/mycard', { headers });
+          if (response.data && response.data.id) {
+            userCard.value = response.data;
+          } else {
+            // Це не помилка 404, а просто порожні дані, вважаємо, що картки немає
+            userCard.value = null;
+          }
+        } catch (error) {
+          console.error("Помилка завантаження даних картки для кредиту:", error);
+          if (error.response && error.response.status === 404) {
+            userCard.value = null; // Картки немає
+          } else {
+            // Інша помилка при завантаженні картки
+            cardError.value = error.response?.data?.message || "Не вдалося перевірити статус вашої картки.";
+          }
+        } finally {
+          isLoadingCardDetails.value = false;
+        }
+      }
     };
 
     onMounted(() => {
-      checkLoginStatus();
+      checkLoginAndCardStatus();
+    });
+
+    const canApplyForLoan = computed(() => {
+      return isLoggedIn.value && userCard.value && userCard.value.status === 'active' && !isLoadingCardDetails.value;
+    });
+
+    const cardMessage = computed(() => {
+      if (!isLoggedIn.value || isLoadingCardDetails.value) {
+        return null;
+      }
+      if (cardError.value) {
+        return cardError.value;
+      }
+      if (!userCard.value) {
+        return "Для оформлення кредиту вам необхідно мати картку нашого банку.";
+      }
+      if (userCard.value.status !== 'active') {
+        let statusText = userCard.value.status;
+        if (statusText === 'waiting') statusText = 'очікує активації';
+        else if (statusText === 'expired') statusText = 'прострочена';
+        else if (statusText === 'blocked') statusText = 'заблокована';
+        else if (statusText === 'renewal_pending') statusText = 'очікує поновлення';
+        return `Ваша картка наразі "${statusText}". Кредит можна оформити лише з активною карткою.`;
+      }
+      return null;
     });
 
     const submitLoanApplication = async () => {
@@ -124,7 +189,11 @@ export default {
       submissionSuccessMessage,
       isLoggedIn,
       submitLoanApplication,
-      checkLoginStatus,
+      checkLoginAndCardStatus,
+      userCard,
+      isLoadingCardDetails,
+      canApplyForLoan,
+      cardMessage
     };
   }
 };
