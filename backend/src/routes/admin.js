@@ -2,6 +2,7 @@ import express from "express";
 import prisma from "../config/prisma.js";
 import jwt from "jsonwebtoken";
 import Cards from "../constants/cards.js";
+import Loans from "../constants/loans.js";
 
 const router = express.Router();
 
@@ -135,7 +136,6 @@ router.get("/cards/renewal-requests", async (req, res) => {
     }
 });
 
-// Нове: підтвердження поновлення картки адміністратором
 router.post("/cards/approve-renewal/:cardId", async (req, res) => {
     const { cardId } = req.params;
     const token = req.headers.authorization?.split(" ")[1];
@@ -167,6 +167,109 @@ router.post("/cards/approve-renewal/:cardId", async (req, res) => {
     } catch (error) {
         console.error("Помилка підтвердження поновлення картки:", error);
         res.status(500).json({ error: "Помилка сервера." });
+    }
+});
+
+router.get("/loans/pending", async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const admin = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!admin || admin.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const pendingLoans = await prisma.loans.findMany({
+            where: { status: Loans.waiting },
+            include: { Users: { select: { id: true, name: true, email: true } } },
+            orderBy: { created_at: 'asc' }
+        });
+        res.status(200).json(pendingLoans);
+    } catch (error) {
+        console.error("Помилка отримання заявок на кредит:", error);
+        if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ error: "Недійсний або прострочений токен." });
+        }
+        res.status(500).json({ error: "Помилка сервера при отриманні заявок." });
+    }
+});
+
+router.post("/loans/decide/:loanId", async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+
+    const { loanId } = req.params;
+    const { decision, finalInterestRate, finalTerm } = req.body;
+
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const adminUser = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!adminUser || adminUser.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const loan = await prisma.loans.findUnique({ where: { id: parseInt(loanId) } });
+        if (!loan) return res.status(404).json({ error: "Заявку на кредит не знайдено." });
+        if (loan.status !== Loans.waiting) return res.status(400).json({ error: `Неможливо змінити статус. Поточний статус: ${loan.status}` });
+
+        let updatedLoanData = {};
+
+        if (decision === 'approve') {
+            updatedLoanData = {
+                status: Loans.active,
+                interest_rate: finalInterestRate ? parseFloat(finalInterestRate) : loan.interest_rate,
+                term: finalTerm ? parseInt(finalTerm) : loan.term,
+            };
+        } else if (decision === 'reject') {
+            updatedLoanData = { status: Loans.rejected };
+        } else {
+            return res.status(400).json({ error: "Невірна дія. Можливі значення: 'approve', 'reject'." });
+        }
+
+        if (decision === 'approve') {
+            const result = await prisma.$transaction(async (tx) => {
+                const approvedLoan = await tx.loans.update({
+                    where: { id: parseInt(loanId) },
+                    data: updatedLoanData,
+                });
+
+                const userActiveCard = await tx.cards.findFirst({
+                    where: { holder_id: approvedLoan.user_id, status: Cards.active }
+                });
+
+                if (!userActiveCard) {
+                    throw new Error(`Неможливо видати кредит: у користувача (ID: ${approvedLoan.user_id}) немає активної картки.`);
+                }
+
+                await tx.cards.update({
+                    where: { id: userActiveCard.id },
+                    data: { balance: { increment: approvedLoan.amount } }
+                });
+
+                await tx.cardTransaction.create({
+                    data: {
+                        senderCardId: userActiveCard.id, // Умовно
+                        receiverCardId: userActiveCard.id,
+                        amount: approvedLoan.amount,
+                        description: `Зарахування кредитних коштів. Кредит ID: ${approvedLoan.id}`,
+                    }
+                });
+                return approvedLoan;
+            });
+            return res.status(200).json({ message: "Кредит схвалено, кошти зараховано.", loan: result });
+        } else { // 'reject'
+            const rejectedLoan = await prisma.loans.update({
+                where: { id: parseInt(loanId) },
+                data: updatedLoanData,
+            });
+            return res.status(200).json({ message: "Заявку на кредит відхилено.", loan: rejectedLoan });
+        }
+    } catch (error) {
+        console.error("Помилка при обробці заявки на кредит:", error);
+        if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ error: "Недійсний або прострочений токен." });
+        }
+        if (error.message.startsWith("Неможливо видати кредит:")) {
+            return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Внутрішня помилка сервера." });
     }
 });
 

@@ -11,18 +11,20 @@ import AdminCardApproval from '../views/AdminCardApproval.vue';
 import {adminGuard, authGuard} from "../middleware/auth.js"
 import AdminChatView from '../views/AdminChatView.vue';
 import AdminCardRenewalView from "../views/AdminCardRenewalView.vue";
+import AdminLoanApplicationsView from '../views/AdminLoanApplicationsView.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/deposit', name: 'Deposit', component: DepositView },
   { path: '/open-card', name: 'OpenCard', component: OpenCardView, beforeEnter: authGuard},
-  { path: '/credit', name: 'Credit', component: CreditView },
+  { path: '/credit', name: 'Credit', component: CreditView, beforeEnter: authGuard },
   { path: '/about', name: 'About', component: AboutView },
   { path: '/profile', name: 'Profile', component: ProfileView, beforeEnter: authGuard},
   { path: '/admin', name: 'AdminProfile', component: AdminProfileView, beforeEnter: adminGuard },
   { path: '/admin/cards', name: 'AdminCardApproval', component: AdminCardApproval, beforeEnter: adminGuard },
   { path: '/admin/chat', name: 'AdminChat', component: AdminChatView, beforeEnter: adminGuard },
   { path: '/admin/card-renewal-requests', name: 'AdminCardRenewalRequests', component: AdminCardRenewalView, beforeEnter: adminGuard},
+  { path: '/admin/loan-applications', name: 'AdminLoanApplicationsView', component: AdminLoanApplicationsView, beforeEnter: adminGuard },
 ];
 
 const router = createRouter({
