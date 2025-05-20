@@ -3,6 +3,7 @@ import prisma from "../config/prisma.js";
 import jwt from "jsonwebtoken";
 import Cards from "../constants/cards.js";
 import Loans from "../constants/loans.js";
+import {calculateEMI, calculateNextPaymentDate} from "../utils/loanUtils.js";
 
 const router = express.Router();
 
@@ -210,12 +211,22 @@ router.post("/loans/decide/:loanId", async (req, res) => {
         if (loan.status !== Loans.waiting) return res.status(400).json({ error: `Неможливо змінити статус. Поточний статус: ${loan.status}` });
 
         let updatedLoanData = {};
+        const now = new Date();
 
         if (decision === 'approve') {
+            const rate = finalInterestRate ? parseFloat(finalInterestRate) : loan.interest_rate;
+            const term = finalTerm ? parseInt(finalTerm) : loan.term;
+            const emi = calculateEMI(loan.amount, rate, term);
+
             updatedLoanData = {
                 status: Loans.active,
-                interest_rate: finalInterestRate ? parseFloat(finalInterestRate) : loan.interest_rate,
-                term: finalTerm ? parseInt(finalTerm) : loan.term,
+                interest_rate: rate,
+                term: term,
+                monthly_payment_amount: emi,
+                outstanding_principal: loan.amount,
+                next_payment_due_date: calculateNextPaymentDate(now),
+                activated_at: now,
+                paid_amount: 0,
             };
         } else if (decision === 'reject') {
             updatedLoanData = { status: Loans.rejected };
@@ -245,7 +256,7 @@ router.post("/loans/decide/:loanId", async (req, res) => {
 
                 await tx.cardTransaction.create({
                     data: {
-                        senderCardId: userActiveCard.id, // Умовно
+                        senderCardId: userActiveCard.id,
                         receiverCardId: userActiveCard.id,
                         amount: approvedLoan.amount,
                         description: `Зарахування кредитних коштів. Кредит ID: ${approvedLoan.id}`,
@@ -253,7 +264,7 @@ router.post("/loans/decide/:loanId", async (req, res) => {
                 });
                 return approvedLoan;
             });
-            return res.status(200).json({ message: "Кредит схвалено, кошти зараховано.", loan: result });
+            return res.status(200).json({ message: "Кредит схвалено, кошти зараховано. Розраховано умови погашення.", loan: result });
         } else { // 'reject'
             const rejectedLoan = await prisma.loans.update({
                 where: { id: parseInt(loanId) },
@@ -266,7 +277,7 @@ router.post("/loans/decide/:loanId", async (req, res) => {
         if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
             return res.status(401).json({ error: "Недійсний або прострочений токен." });
         }
-        if (error.message.startsWith("Неможливо видати кредит:")) {
+        if (error.message && error.message.startsWith("Неможливо видати кредит:")) { // Перевіряємо наявність error.message
             return res.status(400).json({ error: error.message });
         }
         res.status(500).json({ error: "Внутрішня помилка сервера." });

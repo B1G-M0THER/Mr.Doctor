@@ -106,6 +106,72 @@
       </div>
     </div>
 
+    <div class="user-loans-section">
+      <h2>Мої кредити</h2>
+      <div v-if="isLoadingLoans" class="loading-message"><p>Завантаження інформації про кредити...</p></div>
+      <div v-else-if="loansError" class="error-message">{{ loansError }}</div>
+      <div v-else-if="!userLoans || userLoans.length === 0" class="no-requests">
+        <p>У вас немає оформлених кредитів. <router-link to="/credit">Подати заявку на кредит?</router-link></p>
+      </div>
+      <div v-else class="loans-grid">
+        <div v-for="loan in userLoans" :key="loan.id" class="loan-item" :class="`loan-status-${loan.status}`">
+          <h3>Кредит #{{ loan.id }} <span class="status-badge">{{ getLoanStatusText(loan.status) }}</span></h3>
+          <div class="loan-details">
+            <p><strong>Сума кредиту:</strong> {{ loan.amount.toFixed(2) }} UAH</p>
+            <p><strong>Відсоткова ставка:</strong> {{ loan.interest_rate.toFixed(2) }}% річних</p>
+            <p><strong>Термін:</strong> {{ loan.term }} місяців</p>
+            <p><strong>Дата видачі:</strong> {{ loan.activated_at ? new Date(loan.activated_at).toLocaleDateString('uk-UA') : (loan.status === 'waiting' || loan.status === 'rejected' ? new Date(loan.created_at).toLocaleDateString('uk-UA') : 'N/A') }}</p>
+
+            <template v-if="loan.status === 'active'">
+              <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? loan.monthly_payment_amount.toFixed(2) : 'Розраховується...' }} UAH</p>
+              <p><strong>Залишок боргу:</strong> {{ loan.outstanding_principal ? loan.outstanding_principal.toFixed(2) : loan.amount.toFixed(2) }} UAH</p>
+              <p><strong>Наступний платіж до:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
+              <p><strong>Вже сплачено:</strong> {{ loan.paid_amount ? loan.paid_amount.toFixed(2) : '0.00' }} UAH</p>
+              <p v-if="loan.last_payment_date"><strong>Останній платіж:</strong> {{ new Date(loan.last_payment_date).toLocaleDateString('uk-UA') }}</p>
+              <button @click="openLoanPaymentModal(loan)" class="action-button pay-loan-button">Здійснити платіж</button>
+            </template>
+
+            <p v-if="loan.status === 'waiting'" class="info-text">Заявка на розгляді.</p>
+            <p v-if="loan.status === 'closed'" class="info-text success">Кредит повністю погашено.</p>
+            <p v-if="loan.status === 'rejected'" class="info-text error">Заявку на кредит відхилено.</p>
+          </div>
+
+          <div v-if="loan.LoanPayments && loan.LoanPayments.length > 0" class="loan-payments-history">
+            <h4>Останні платежі:</h4>
+            <ul>
+              <li v-for="payment in loan.LoanPayments.slice(0, 3)" :key="payment.id">
+                {{ new Date(payment.payment_date).toLocaleDateString('uk-UA') }}:
+                <strong>{{ payment.amount_paid.toFixed(2) }} UAH</strong>
+                (Тіло: {{payment.principal_paid.toFixed(2)}}, Відсотки: {{payment.interest_paid.toFixed(2)}})
+              </li>
+              <li v-if="loan.LoanPayments.length > 3">... та ще {{loan.LoanPayments.length - 3 }} платежів</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-if="showLoanPaymentModal && selectedLoanForPayment" class="modal-overlay" @click.self="closeLoanPaymentModal">
+      <div class="modal-content">
+        <span class="close-icon" @click="closeLoanPaymentModal">&times;</span>
+        <h3>Погашення кредиту #{{ selectedLoanForPayment.id }}</h3>
+        <div class="loan-payment-details">
+          <p><strong>Залишок боргу:</strong> {{ selectedLoanForPayment.outstanding_principal ? selectedLoanForPayment.outstanding_principal.toFixed(2) : '0.00' }} UAH</p>
+          <p><strong>Рекомендований платіж:</strong> {{ selectedLoanForPayment.monthly_payment_amount ? selectedLoanForPayment.monthly_payment_amount.toFixed(2) : 'N/A' }} UAH</p>
+          <p v-if="activeCard"><strong>Баланс картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
+        </div>
+        <form @submit.prevent="handleLoanPayment">
+          <div class="form-group">
+            <label for="paymentAmount">Сума платежу (UAH):</label>
+            <input type="number" id="paymentAmount" v-model.number="paymentData.amount" :placeholder="selectedLoanForPayment.monthly_payment_amount ? selectedLoanForPayment.monthly_payment_amount.toFixed(2) : 'Сума'" step="0.01" min="0.01" required />
+          </div>
+          <div v-if="paymentError" class="error-message">{{ paymentError }}</div>
+          <div v-if="paymentSuccessMessage" class="success-message">{{ paymentSuccessMessage }}</div>
+          <button type="submit" class="submit-button" :disabled="isProcessingPayment"> {{ isProcessingPayment ? 'Обробка...' : 'Сплатити' }}
+          </button>
+        </form>
+      </div>
+    </div>
+
     <div class="currency-converter-section compact">
       <h2>Конвертер валют</h2>
       <div v-if="isLoadingCurrencies" class="loading-message compact-loading">Завантаження списку валют...</div>
@@ -185,10 +251,9 @@ export default {
       renewalSuccessMessage: null,
       renewalLoading: false,
 
-      // Дані для конвертера валют
       supportedCurrencies: [],
-      allRates: {}, // Для зберігання курсів: { "USD": 39.50, ... }
-      nbuExchangeDate: null, // Дата курсів НБУ
+      allRates: {},
+      nbuExchangeDate: null,
       isLoadingCurrencies: true,
       currencyApiError: null,
       conversionRequest: {
@@ -204,6 +269,17 @@ export default {
         error: null,
       },
       isLoadingConversion: false,
+      userLoans: [],
+      isLoadingLoans: true,
+      loansError: null,
+      showLoanPaymentModal: false,
+      selectedLoanForPayment: null,
+      paymentData: {
+        amount: null,
+      },
+      paymentError: null,
+      paymentSuccessMessage: null,
+      isProcessingPayment: false,
     };
   },
   async created() {
@@ -211,9 +287,90 @@ export default {
     if (this.user && !this.renewalSuccessMessage) {
       await this.fetchCardData();
     }
-    await this.fetchSupportedCurrenciesNBU(); // Використовуємо метод для НБУ
+    await this.fetchSupportedCurrenciesNBU();
+    await  this.fetchUserLoans();
   },
   methods: {
+    async fetchUserLoans() {
+      this.isLoadingLoans = true;
+      this.loansError = null;
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.isLoadingLoans = false;
+          return;
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const response = await axios.get('/api/loans/my', { headers });
+        this.userLoans = response.data;
+      } catch (error) {
+        console.error("Помилка завантаження кредитів:", error);
+        this.loansError = error.response?.data?.error || "Не вдалося завантажити інформацію про кредити.";
+        if (error.response?.status === 401 || error.response?.status === 403) {
+        }
+      } finally {
+        this.isLoadingLoans = false;
+      }
+    },
+    openLoanPaymentModal(loan) {
+      this.selectedLoanForPayment = { ...loan };
+      this.paymentData.amount = loan.monthly_payment_amount ? parseFloat(loan.monthly_payment_amount.toFixed(2)) : null;
+      this.paymentError = null;
+      this.paymentSuccessMessage = null;
+      this.showLoanPaymentModal = true;
+    },
+    closeLoanPaymentModal() {
+      this.showLoanPaymentModal = false;
+      this.selectedLoanForPayment = null;
+      this.paymentData.amount = null;
+    },
+    async handleLoanPayment() {
+      if (!this.selectedLoanForPayment || !this.paymentData.amount || this.paymentData.amount <= 0) {
+        this.paymentError = "Будь ласка, введіть коректну суму платежу.";
+        return;
+      }
+      this.isProcessingPayment = true;
+      this.paymentError = null;
+      this.paymentSuccessMessage = null;
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.paymentError = "Помилка автентифікації. Спробуйте увійти знову.";
+          this.isProcessingPayment = false;
+          return;
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const payload = { paymentAmount: this.paymentData.amount };
+        const loanId = this.selectedLoanForPayment.id;
+
+        const response = await axios.post(`/api/loans/${loanId}/pay`, payload, { headers });
+
+        this.paymentSuccessMessage = response.data.message || "Платіж успішно здійснено!";
+        await this.fetchUserLoans(); // Оновлюємо список кредитів
+        await this.fetchCardData();  // Оновлюємо баланс картки, оскільки платіж міг бути з неї
+
+        setTimeout(() => {
+          this.closeLoanPaymentModal();
+          // paymentSuccessMessage очиститься при наступному відкритті модалки або можна очистити тут
+        }, 500);
+
+      } catch (error) {
+        console.error("Помилка здійснення платежу по кредиту:", error);
+        this.paymentError = error.response?.data?.error || "Не вдалося здійснити платіж.";
+      } finally {
+        this.isProcessingPayment = false;
+      }
+    },
+    getLoanStatusText(status) {
+      const statuses = {
+        waiting: "На розгляді",
+        active: "Активний",
+        rejected: "Відхилено",
+        closed: "Погашено",
+        unpaid: "Є заборгованість"
+      };
+      return statuses[status] || status.charAt(0).toUpperCase() + status.slice(1);
+    },
     async fetchUserData() {
       this.isLoadingUser = true;
       this.user = null;
@@ -272,7 +429,7 @@ export default {
       this.transferData.receiverCardNumber = formattedValue;
       this.$nextTick(() => {
         let newCursorPosition = input.selectionStart;
-        const originalValue = input.value; // Збережемо оригінальне значення для порівняння
+        const originalValue = input.value;
         const originalCharsBeforeCursor = originalValue.substring(0, input.selectionStart).replace(/\s/g, "").length;
         let tempRawCharCount = 0;
         let finalPos = 0;
@@ -281,15 +438,13 @@ export default {
           if(/\d/.test(formattedValue[i])) { tempRawCharCount++; }
           finalPos++;
           if(tempRawCharCount >= originalCharsBeforeCursor && originalCharsBeforeCursor > 0 ) {
-            // Якщо це пробіл, який ми додали, а користувач був перед ним, зсуваємо курсор
             if (formattedValue[i] === ' ' && originalValue[finalPos-2] !== ' ') {
-              // Не робимо нічого особливого, finalPos вже правильний
             }
             break;
           }
           if(originalCharsBeforeCursor === 0 && i >= input.selectionStart) break;
         }
-        // Корекція позиції, якщо видаляється пробіл
+
         if (originalValue.length > formattedValue.length && originalValue.charAt(input.selectionStart -1) === ' ') {
           newCursorPosition = input.selectionStart -1;
         } else {
@@ -315,13 +470,22 @@ export default {
       if (this.activeCard.balance < this.transferData.amount) { this.transferError = "Недостатньо коштів на вашому балансі."; this.transferLoading = false; return; }
       if (this.transferData.senderCVV.length !== 3) { this.transferError = "CVV повинен містити 3 цифри."; this.transferLoading = false; return; }
       if (this.transferData.senderPIN.length !== 4) { this.transferError = "PIN-код повинен містити 4 цифри."; this.transferLoading = false; return; }
-      if (receiverCardNumberClean === this.activeCard.card_number.replace(/\s/g, '')) { this.transferError = "Неможливо переказати кошти на власну картку."; this.transferLoading = false; return; }
+      if (receiverCardNumberClean === this.activeCard.card_number.replace(/\s/g, '')) {
+        this.transferError = "Неможливо переказати кошти на власну картку.";
+        this.transferLoading = false;
+        return;
+      }
 
       try {
         const token = localStorage.getItem('token');
         if (!token) { this.transferError = "Помилка автентифікації."; this.transferLoading = false; return; }
         const headers = { Authorization: `Bearer ${token}` };
-        const payload = { receiverCardNumber: receiverCardNumberClean, amount: this.transferData.amount, senderCVV: this.transferData.senderCVV, senderPIN: this.transferData.senderPIN };
+        const payload = {
+          receiverCardNumber: receiverCardNumberClean,
+          amount: this.transferData.amount,
+          senderCVV: this.transferData.senderCVV,
+          senderPIN: this.transferData.senderPIN
+        };
         const response = await axios.post('/api/transactions/transfer', payload, { headers });
         this.transferSuccessMessage = response.data.message || "Переказ успішно виконано!";
         await this.fetchCardData();
@@ -348,7 +512,12 @@ export default {
         const response = await axios.post('/api/cards/renew', payload, { headers });
         this.renewalSuccessMessage = response.data.message || "Запит на поновлення картки прийнято!";
         if (response.data.updatedCardPreview) {
-          this.activeCard = { ...this.activeCard, status: response.data.updatedCardPreview.status, card_number: response.data.updatedCardPreview.cardNumber, dueDate: response.data.updatedCardPreview.dueDate, };
+          this.activeCard = {
+            ...this.activeCard,
+            status: response.data.updatedCardPreview.status,
+            card_number: response.data.updatedCardPreview.cardNumber,
+            dueDate: response.data.updatedCardPreview.dueDate,
+          };
         } else { await this.fetchCardData(); }
         setTimeout(() => { this.closeRenewCardModal(); }, 2500);
       } catch (error) {
@@ -357,7 +526,7 @@ export default {
         this.renewalLoading = false;
       }
     },
-    async fetchSupportedCurrenciesNBU() { // Змінено з fetchSupportedCurrencies
+    async fetchSupportedCurrenciesNBU() {
       this.isLoadingCurrencies = true;
       this.currencyApiError = null;
       this.allRates = {};
@@ -698,5 +867,122 @@ h2 {
   .converter-form.compact .convert-button.compact-button {
     width: 100%;
   }
+}
+
+.user-loans-section {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #252525; /* Темний фон для секції */
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.user-loans-section h2 {
+  color: #42b983;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.loans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Адаптивні колонки */
+  gap: 20px;
+}
+.loan-item {
+  background-color: rgb(55, 55, 55, 0.7);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 15px 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.loan-item h3 {
+  color: #e0e0e0;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.15em;
+  border-bottom: 1px solid #4a4a4a;
+  padding-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.status-badge {
+  font-weight: normal; /* Змінено з bold на normal */
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid transparent; /* Для консистенції розміру */
+}
+/* Стилі для різних статусів кредиту */
+.loan-status-active .status-badge { background-color: #28a745; color: white; border-color: #1e7e34; }
+.loan-status-waiting .status-badge { background-color: #f0ad4e; color: #212529; border-color: #d58512; }
+.loan-status-closed .status-badge { background-color: #5bc0de; color: white; border-color: #31b0d5;}
+.loan-status-rejected .status-badge { background-color: #d9534f; color: white; border-color: #b52b27;}
+.loan-status-unpaid .status-badge { background-color: #c9302c; color: white; border-color: #ac2925;} /* Трохи темніший червоний для unpaid */
+
+
+.loan-details p {
+  margin: 7px 0; /* Змінено */
+  font-size: 0.9em;
+  color: #c5c5c5;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap; /* Дозволяє перенос, якщо значення довге */
+}
+.loan-details p strong {
+  color: #e8e8e8;
+  margin-right: 10px;
+  flex-shrink: 0; /* Щоб мітка не стискалася */
+}
+.pay-loan-button {
+  margin-top: 15px;
+  background-color: #007bff;
+  padding: 8px 15px;
+  font-size: 0.95em;
+  align-self: flex-start;
+}
+.pay-loan-button:hover {
+  background-color: #0056b3;
+}
+.loan-payments-history {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px dashed #555;
+  font-size: 0.85em;
+}
+.loan-payments-history h4 {
+  margin-bottom: 8px;
+  color: #b0bec5;
+  font-size: 0.95em;
+}
+.loan-payments-history ul {
+  list-style: none;
+  padding-left: 0;
+  color: #999;
+}
+.loan-payments-history li {
+  padding: 4px 0;
+  border-bottom: 1px dotted #444;
+  line-height: 1.4;
+}
+.loan-payments-history li:last-child {
+  border-bottom: none;
+}
+.info-text {
+  font-style: italic;
+  color: #aaa;
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+.info-text.success { color: #28a745; font-weight: bold; }
+.info-text.error { color: #d9534f; font-weight: bold; }
+
+/* Стилі для модального вікна платежу по кредиту (успадковуються від .modal-content, але можна додати специфічні) */
+.loan-payment-details {
+  border-bottom: 1px solid #333;
+  padding-bottom: 15px;
 }
 </style>

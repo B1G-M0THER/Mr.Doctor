@@ -17,7 +17,7 @@ const routes = [
   { path: '/', name: 'Home', component: HomeView },
   { path: '/deposit', name: 'Deposit', component: DepositView },
   { path: '/open-card', name: 'OpenCard', component: OpenCardView, beforeEnter: authGuard},
-  { path: '/credit', name: 'Credit', component: CreditView, beforeEnter: authGuard },
+  { path: '/credit', name: 'Credit', component: CreditView},
   { path: '/about', name: 'About', component: AboutView },
   { path: '/profile', name: 'Profile', component: ProfileView, beforeEnter: authGuard},
   { path: '/admin', name: 'AdminProfile', component: AdminProfileView, beforeEnter: adminGuard },
