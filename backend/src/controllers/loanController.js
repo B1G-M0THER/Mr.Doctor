@@ -4,6 +4,66 @@ import Cards from "../constants/cards.js";
 import {calculateNextPaymentDate, calculateMonthlyInterest } from "../utils/loanUtils.js";
 
 const DEFAULT_INTEREST_RATE = 15.0;
+const PENALTY_RATE = 0.35;
+
+async function checkAndApplyPenalties(loan, dbClient = prisma) {
+    if (!loan || (loan.status !== Loans.active && loan.status !== Loans.unpaid) || !loan.monthly_payment_amount) {
+        return loan;
+    }
+
+    const now = new Date();
+    let updatedLoanData = {};
+    let needsUpdate = false;
+
+    if (loan.status === Loans.active && loan.next_payment_due_date && now > new Date(loan.next_payment_due_date)) {
+        updatedLoanData.status = Loans.unpaid;
+
+        const initialPenalty = parseFloat((loan.monthly_payment_amount * PENALTY_RATE).toFixed(2));
+        updatedLoanData.accrued_penalty = parseFloat(((loan.accrued_penalty || 0) + initialPenalty).toFixed(2));
+        updatedLoanData.last_penalty_calculation_date = now;
+        needsUpdate = true;
+        console.log(`Loan #${loan.id} became unpaid. Initial penalty: ${initialPenalty}`);
+    }
+
+    else if (loan.status === Loans.unpaid && loan.last_penalty_calculation_date) {
+        const lastCalcDate = new Date(loan.last_penalty_calculation_date);
+        const oneWeekInMilliseconds = 7 * 24 * 60 * 60 * 1000;
+
+        let weeksOverdue = 0;
+        let nextPenaltyDate = new Date(lastCalcDate.getTime() + oneWeekInMilliseconds);
+
+        while(now >= nextPenaltyDate) {
+            weeksOverdue++;
+            nextPenaltyDate = new Date(nextPenaltyDate.getTime() + oneWeekInMilliseconds);
+        }
+
+        if (weeksOverdue > 0) {
+            const weeklyPenalty = parseFloat((loan.monthly_payment_amount * PENALTY_RATE).toFixed(2));
+            const totalNewPenalty = parseFloat((weeklyPenalty * weeksOverdue).toFixed(2));
+            updatedLoanData.accrued_penalty = parseFloat(((loan.accrued_penalty || 0) + totalNewPenalty).toFixed(2));
+            const timeDiff = now.getTime() - lastCalcDate.getTime();
+            if (timeDiff >= oneWeekInMilliseconds) {
+                updatedLoanData.last_penalty_calculation_date = now;
+                needsUpdate = true;
+                console.log(`Loan #${loan.id} is unpaid. Accrued ${weeksOverdue} weekly penalties. Total new: ${totalNewPenalty}`);
+            }
+        }
+    }
+
+    if (needsUpdate) {
+        try {
+            const changedLoan = await dbClient.loans.update({
+                where: { id: loan.id },
+                data: updatedLoanData,
+            });
+            return { ...loan, ...changedLoan };
+        } catch (error) {
+            console.error(`Error updating penalties for loan #${loan.id}:`, error);
+            return loan;
+        }
+    }
+    return loan;
+}
 
 export const applyForLoan = async (req, res) => {
     const userId = req.userId;
@@ -11,7 +71,9 @@ export const applyForLoan = async (req, res) => {
         return res.status(401).json({ error: "Користувач не авторизований для цієї дії." });
     }
     const { amount, termInMonths } = req.body;
-    const loanAmount = parseFloat(amount);
+
+    const loanAmountInput = parseFloat(amount);
+    const loanAmount = parseFloat(loanAmountInput.toFixed(2));
     const loanTerm = parseInt(termInMonths, 10);
 
     if (isNaN(loanAmount) || loanAmount <= 0) return res.status(400).json({ error: "Сума кредиту повинна бути позитивним числом." });
@@ -20,6 +82,16 @@ export const applyForLoan = async (req, res) => {
     if (loanTerm > 120) return res.status(400).json({ error: "Максимальний термін кредиту 120 місяців." });
 
     try {
+        const unpaidLoans = await prisma.loans.findFirst({
+            where: {
+                user_id: userId,
+                status: Loans.unpaid
+            }
+        });
+        if (unpaidLoans) {
+            return res.status(400).json({ error: `Ви не можете подати нову заявку, оскільки у вас є кредит зі статусом "Прострочено". Будь ласка, спочатку врегулюйте заборгованість.` });
+        }
+
         const existingLoan = await prisma.loans.findFirst({
             where: { user_id: userId, status: { in: [Loans.waiting, Loans.active] } }
         });
@@ -30,6 +102,7 @@ export const applyForLoan = async (req, res) => {
             data: {
                 user_id: userId, amount: loanAmount, interest_rate: DEFAULT_INTEREST_RATE,
                 term: loanTerm, status: Loans.waiting,
+                accrued_penalty: 0,
             },
         });
         res.status(201).json({
@@ -58,7 +131,31 @@ export const getUserLoans = async (req, res) => {
                 LoanPayments: { orderBy: { payment_date: 'desc' } }
             }
         });
-        res.status(200).json(userLoans);
+
+        const updatedUserLoans = [];
+        for (const loan of userLoans) {
+            const checkedLoan = await checkAndApplyPenalties(loan);
+            updatedUserLoans.push(checkedLoan);
+        }
+
+        const formattedLoans = updatedUserLoans.map(loan => ({
+            ...loan,
+            amount: parseFloat(loan.amount.toFixed(2)),
+            interest_rate: parseFloat(loan.interest_rate.toFixed(2)),
+            monthly_payment_amount: loan.monthly_payment_amount ? parseFloat(loan.monthly_payment_amount.toFixed(2)) : null,
+            outstanding_principal: loan.outstanding_principal ? parseFloat(loan.outstanding_principal.toFixed(2)) : null,
+            paid_amount: loan.paid_amount ? parseFloat(loan.paid_amount.toFixed(2)) : null,
+            accrued_penalty: loan.accrued_penalty ? parseFloat(loan.accrued_penalty.toFixed(2)) : 0, // Додано
+            LoanPayments: loan.LoanPayments.map(payment => ({
+
+                ...payment,
+                amount_paid: parseFloat(payment.amount_paid.toFixed(2)),
+                principal_paid: parseFloat(payment.principal_paid.toFixed(2)),
+                interest_paid: parseFloat(payment.interest_paid.toFixed(2)),
+                outstanding_principal_after_payment: parseFloat(payment.outstanding_principal_after_payment.toFixed(2)),
+            }))
+        }));
+        res.status(200).json(formattedLoans);
     } catch (error) {
         console.error("Помилка отримання кредитів користувача:", error);
         res.status(500).json({ error: "Помилка сервера при отриманні кредитів." });
@@ -68,7 +165,7 @@ export const getUserLoans = async (req, res) => {
 export const makeLoanPayment = async (req, res) => {
     const userId = req.userId;
     const { loanId } = req.params;
-    const { paymentAmount } = req.body; // Ця сума тепер буде розрахована на фронтенді (EMI або фінальний платіж)
+    const { paymentAmount } = req.body;
 
     if (!userId) return res.status(401).json({ error: "Користувач не авторизований." });
     if (!loanId) return res.status(400).json({ error: "ID кредиту не вказано." });
@@ -77,7 +174,7 @@ export const makeLoanPayment = async (req, res) => {
     if (isNaN(amountToPayByClient) || amountToPayByClient <= 0) {
         return res.status(400).json({ error: "Сума платежу повинна бути позитивним числом." });
     }
-    // Округлення суми, що прийшла від клієнта, для консистентності
+
     const roundedAmountToPayByClient = parseFloat(amountToPayByClient.toFixed(2));
 
     try {
@@ -100,68 +197,53 @@ export const makeLoanPayment = async (req, res) => {
             });
             if (!userCard) throw { status: 404, message: "Активну картку для списання коштів не знайдено." };
 
-            // Розрахунок відсотків за поточний період на поточний залишок боргу
-            const currentPeriodInterest = calculateMonthlyInterest(loan.outstanding_principal, loan.interest_rate);
-            // Фактична сума, необхідна для повного погашення залишку + відсотки за період
-            const actualAmountDueToEndLoan = parseFloat((loan.outstanding_principal + currentPeriodInterest).toFixed(2));
+
+            const currentInterestForPeriod = calculateMonthlyInterest(loan.outstanding_principal, loan.interest_rate);
+            const actualAmountToCloseLoanIfThisIsLastPayment = parseFloat((loan.outstanding_principal + currentInterestForPeriod).toFixed(2));
 
             let effectivePaymentAmount = roundedAmountToPayByClient;
-            if (roundedAmountToPayByClient > actualAmountDueToEndLoan) {
-                effectivePaymentAmount = actualAmountDueToEndLoan;
+            if (roundedAmountToPayByClient > actualAmountToCloseLoanIfThisIsLastPayment && actualAmountToCloseLoanIfThisIsLastPayment > 0 && loan.outstanding_principal > 0) {
+                effectivePaymentAmount = actualAmountToCloseLoanIfThisIsLastPayment;
             }
+            if (userCard.balance < effectivePaymentAmount) throw { status: 400, message: `Недостатньо коштів на балансі картки. Потрібно: ${effectivePaymentAmount.toFixed(2)} UAH` };
 
-            if (userCard.balance < effectivePaymentAmount) {
-                throw { status: 400, message: `Недостатньо коштів на балансі картки. Потрібно: ${effectivePaymentAmount.toFixed(2)} UAH` };
-            }
+            let interestPaidThisPeriod = 0;
+            let principalPaidThisPeriod = 0;
 
-            let interestPaidThisMonth = 0;
-            let principalPaidThisMonth = 0;
-
-            if (effectivePaymentAmount >= currentPeriodInterest) {
-                interestPaidThisMonth = currentPeriodInterest;
-                principalPaidThisMonth = parseFloat((effectivePaymentAmount - currentPeriodInterest).toFixed(2));
+            if (effectivePaymentAmount >= currentInterestForPeriod) {
+                interestPaidThisPeriod = currentInterestForPeriod;
+                principalPaidThisPeriod = parseFloat((effectivePaymentAmount - currentInterestForPeriod).toFixed(2));
             } else {
-                interestPaidThisMonth = effectivePaymentAmount;
-                principalPaidThisMonth = 0;
+                interestPaidThisPeriod = effectivePaymentAmount; principalPaidThisPeriod = 0;
             }
-
-            if (principalPaidThisMonth > loan.outstanding_principal) {
-                principalPaidThisMonth = loan.outstanding_principal;
+            if (principalPaidThisPeriod > loan.outstanding_principal) principalPaidThisPeriod = parseFloat(loan.outstanding_principal.toFixed(2));
+            if ((principalPaidThisPeriod + interestPaidThisPeriod) > effectivePaymentAmount && effectivePaymentAmount >= principalPaidThisPeriod) {
+                interestPaidThisPeriod = parseFloat((effectivePaymentAmount - principalPaidThisPeriod).toFixed(2));
+                if (interestPaidThisPeriod < 0) interestPaidThisPeriod = 0;
+            } else if ((principalPaidThisPeriod + interestPaidThisPeriod) < effectivePaymentAmount && principalPaidThisPeriod === parseFloat(loan.outstanding_principal.toFixed(2))) {
+                interestPaidThisPeriod = parseFloat((effectivePaymentAmount - principalPaidThisPeriod).toFixed(2));
+                if (interestPaidThisPeriod < 0) interestPaidThisPeriod = 0;
             }
-
-            // 1. Списання коштів з картки (списуємо effectivePaymentAmount)
             const newCardBalance = parseFloat((userCard.balance - effectivePaymentAmount).toFixed(2));
-            await tx.cards.update({
-                where: { id: userCard.id },
-                data: { balance: newCardBalance }
-            });
-
-            const newOutstandingPrincipal = Math.max(0, parseFloat((loan.outstanding_principal - principalPaidThisMonth).toFixed(2)));
-            const newPaidAmount = parseFloat(((loan.paid_amount || 0) + effectivePaymentAmount).toFixed(2));
-
+            await tx.cards.update({ where: { id: userCard.id }, data: { balance: newCardBalance } });
+            const newOutstandingPrincipal = Math.max(0, parseFloat((loan.outstanding_principal - principalPaidThisPeriod).toFixed(2)));
+            const newPaidAmountTotal = parseFloat(((loan.paid_amount || 0) + effectivePaymentAmount).toFixed(2));
             const updatedLoan = await tx.loans.update({
                 where: { id: loan.id },
                 data: {
-                    outstanding_principal: newOutstandingPrincipal,
-                    paid_amount: newPaidAmount,
+                    outstanding_principal: newOutstandingPrincipal, paid_amount: newPaidAmountTotal,
                     last_payment_date: new Date(),
                     next_payment_due_date: newOutstandingPrincipal > 0.001 ? calculateNextPaymentDate(loan.next_payment_due_date || new Date()) : null,
                     status: newOutstandingPrincipal <= 0.001 ? Loans.closed : loan.status,
                 }
             });
-
-            // 4. Створення запису в історії платежів по кредиту
             await tx.loanPayment.create({
                 data: {
-                    loan_id: loan.id,
-                    amount_paid: effectivePaymentAmount,
-                    principal_paid: principalPaidThisMonth,
-                    interest_paid: interestPaidThisMonth,
-                    outstanding_principal_after_payment: newOutstandingPrincipal,
+                    loan_id: loan.id, amount_paid: effectivePaymentAmount, principal_paid: principalPaidThisPeriod,
+                    interest_paid: interestPaidThisPeriod, outstanding_principal_after_payment: newOutstandingPrincipal,
                     notes: `Платіж по кредиту. Запит клієнта: ${roundedAmountToPayByClient.toFixed(2)} UAH`
                 }
             });
-
             return updatedLoan;
         });
 
@@ -173,6 +255,83 @@ export const makeLoanPayment = async (req, res) => {
             return res.status(error.status).json({ error: error.message });
         }
         res.status(500).json({ error: "Внутрішня помилка сервера." });
+    }
+};
+
+export const payLoanPenalty = async (req, res) => {
+    const userId = req.userId;
+    const { loanId } = req.params;
+
+    if (!userId) return res.status(401).json({ error: "Користувач не авторизований." });
+    if (!loanId) return res.status(400).json({ error: "ID кредиту не вказано." });
+
+    try {
+        const result = await prisma.$transaction(async (tx) => {
+            let loan = await tx.loans.findUnique({ where: { id: parseInt(loanId) } });
+
+            if (!loan) throw { status: 404, message: "Кредит не знайдено." };
+            if (loan.user_id !== userId) throw { status: 403, message: "Цей кредит не належить вам." };
+
+            loan = await checkAndApplyPenalties(loan, tx);
+
+            if (loan.status !== Loans.unpaid) {
+                throw { status: 400, message: `Кредит не є простроченим або немає штрафів до сплати. Статус: ${loan.status}` };
+            }
+            if (!loan.accrued_penalty || loan.accrued_penalty <= 0) {
+                throw { status: 400, message: "Нарахованих штрафів до сплати немає." };
+            }
+
+            const penaltyToPay = parseFloat(loan.accrued_penalty.toFixed(2));
+
+            const userCard = await tx.cards.findFirst({
+                where: { holder_id: userId, status: Cards.active }
+            });
+            if (!userCard) throw { status: 404, message: "Активну картку для списання коштів не знайдено." };
+            if (userCard.balance < penaltyToPay) throw { status: 400, message: `Недостатньо коштів на картці для сплати штрафу. Потрібно: ${penaltyToPay} UAH` };
+
+            const newCardBalance = parseFloat((userCard.balance - penaltyToPay).toFixed(2));
+            await tx.cards.update({
+                where: { id: userCard.id },
+                data: { balance: newCardBalance }
+            });
+
+            const paymentDate = new Date();
+            let nextDueDate = new Date(paymentDate);
+            nextDueDate.setDate(nextDueDate.getDate() + 3);
+
+            const updatedLoan = await tx.loans.update({
+                where: { id: loan.id },
+                data: {
+                    accrued_penalty: 0,
+                    status: Loans.active,
+                    next_payment_due_date: nextDueDate,
+                    last_penalty_calculation_date: null,
+                    last_payment_date: paymentDate,
+                }
+            });
+
+            await tx.loanPayment.create({
+                data: {
+                    loan_id: loan.id,
+                    payment_date: paymentDate,
+                    amount_paid: penaltyToPay,
+                    principal_paid: 0,
+                    interest_paid: 0,
+                    outstanding_principal_after_payment: loan.outstanding_principal,
+                    notes: `Сплата штрафу у розмірі ${penaltyToPay.toFixed(2)} UAH.`
+                }
+            });
+
+            return updatedLoan;
+        });
+        res.status(200).json({ message: "Штраф по кредиту успішно сплачено. Кредит знову активний.", loan: result });
+
+    } catch (error) {
+        console.error("Помилка при сплаті штрафу по кредиту:", error);
+        if (error.status && error.message) {
+            return res.status(error.status).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Внутрішня помилка сервера при сплаті штрафу." });
     }
 };
 
