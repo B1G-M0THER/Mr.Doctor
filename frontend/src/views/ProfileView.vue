@@ -124,7 +124,7 @@
 
             <template v-if="loan.status === 'active'">
               <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? loan.monthly_payment_amount.toFixed(2) : 'Розраховується...' }} UAH</p>
-              <p><strong>Залишок боргу:</strong> {{ loan.outstanding_principal ? loan.outstanding_principal.toFixed(2) : loan.amount.toFixed(2) }} UAH</p>
+              <p><strong>Залишок боргу:</strong> <span v-if="loan.monthly_payment_amount && loan.term">{{ formatDisplayedDebt((loan.monthly_payment_amount * loan.term) - (loan.paid_amount || 0)) }} UAH</span><span v-else>Розраховується...</span></p>
               <p><strong>Наступний платіж до:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
               <p><strong>Вже сплачено:</strong> {{ loan.paid_amount ? loan.paid_amount.toFixed(2) : '0.00' }} UAH</p>
               <p v-if="loan.last_payment_date"><strong>Останній платіж:</strong> {{ new Date(loan.last_payment_date).toLocaleDateString('uk-UA') }}</p>
@@ -132,8 +132,13 @@
             </template>
 
             <p v-if="loan.status === 'waiting'" class="info-text">Заявка на розгляді.</p>
-            <p v-if="loan.status === 'closed'" class="info-text success">Кредит повністю погашено.</p>
-            <p v-if="loan.status === 'rejected'" class="info-text error">Заявку на кредит відхилено.</p>
+            <div v-if="loan.status === 'closed' || loan.status === 'rejected'" class="loan-actions-closed-rejected">
+              <p v-if="loan.status === 'closed'" class="info-text success">Кредит повністю погашено.</p>
+              <p v-if="loan.status === 'rejected'" class="info-text error">Заявку на кредит відхилено.</p>
+              <button @click="openDeleteLoanModal(loan)" class="action-button delete-loan-history-button" :disabled="isDeletingLoan && loanToDelete && loanToDelete.id === loan.id">
+                {{ (isDeletingLoan && loanToDelete && loanToDelete.id === loan.id) ? 'Видалення...' : 'Видалити з історії' }}
+              </button>
+            </div>
           </div>
 
           <div v-if="loan.LoanPayments && loan.LoanPayments.length > 0" class="loan-payments-history">
@@ -155,18 +160,15 @@
         <span class="close-icon" @click="closeLoanPaymentModal">&times;</span>
         <h3>Погашення кредиту #{{ selectedLoanForPayment.id }}</h3>
         <div class="loan-payment-details">
-          <p><strong>Залишок боргу:</strong> {{ selectedLoanForPayment.outstanding_principal ? selectedLoanForPayment.outstanding_principal.toFixed(2) : '0.00' }} UAH</p>
-          <p><strong>Рекомендований платіж:</strong> {{ selectedLoanForPayment.monthly_payment_amount ? selectedLoanForPayment.monthly_payment_amount.toFixed(2) : 'N/A' }} UAH</p>
-          <p v-if="activeCard"><strong>Баланс картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
+          <p><strong>Залишок основного боргу:</strong> {{ selectedLoanForPayment.outstanding_principal ? selectedLoanForPayment.outstanding_principal.toFixed(2) : '0.00' }} UAH</p>
+          <p><strong>Сума до сплати:</strong> <strong style="color: #42b983;">{{ paymentData.amountToPayDisplay ? paymentData.amountToPayDisplay.toFixed(2) : 'Розрахунок...' }} UAH</strong></p>
+          <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
         </div>
         <form @submit.prevent="handleLoanPayment">
-          <div class="form-group">
-            <label for="paymentAmount">Сума платежу (UAH):</label>
-            <input type="number" id="paymentAmount" v-model.number="paymentData.amount" :placeholder="selectedLoanForPayment.monthly_payment_amount ? selectedLoanForPayment.monthly_payment_amount.toFixed(2) : 'Сума'" step="0.01" min="0.01" required />
-          </div>
           <div v-if="paymentError" class="error-message">{{ paymentError }}</div>
           <div v-if="paymentSuccessMessage" class="success-message">{{ paymentSuccessMessage }}</div>
-          <button type="submit" class="submit-button" :disabled="isProcessingPayment"> {{ isProcessingPayment ? 'Обробка...' : 'Сплатити' }}
+          <button type="submit" class="submit-button" :disabled="isProcessingPayment || !paymentData.amountToPayDisplay || paymentData.amountToPayDisplay <=0">
+            {{ isProcessingPayment ? 'Обробка...' : (paymentData.amountToPayDisplay && activeCard && activeCard.balance < paymentData.amountToPayDisplay ? 'Недостатньо коштів' : 'Сплатити') }}
           </button>
         </form>
       </div>
@@ -213,6 +215,24 @@
       </div>
       <div v-if="conversionResult.error" class="error-message conversion-error-display compact-error">
         {{ conversionResult.error }}
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showDeleteLoanModal && loanToDelete" class="modal-overlay" @click.self="closeDeleteLoanModal">
+    <div class="modal-content delete-confirmation-modal">
+      <span class="close-icon" @click="closeDeleteLoanModal">&times;</span>
+      <h3>Підтвердження видалення</h3>
+      <p>Ви впевнені, що хочете видалити історію кредиту <strong>#{{ loanToDelete.id }}</strong>?</p>
+      <p>Ця дія видалить інформацію про кредит та всі пов'язані з ним платежі. <strong>Цю дію неможливо буде скасувати.</strong></p>
+      <div v-if="deleteLoanError" class="error-message">{{ deleteLoanError }}</div>
+      <div class="modal-actions">
+        <button @click="confirmDeleteLoan" class="submit-button delete-confirm-btn" :disabled="isDeletingLoan">
+          {{ isDeletingLoan ? 'Видалення...' : 'Так, видалити' }}
+        </button>
+        <button @click="closeDeleteLoanModal" class="submit-button cancel-btn" :disabled="isDeletingLoan">
+          Скасувати
+        </button>
       </div>
     </div>
   </div>
@@ -275,11 +295,16 @@ export default {
       showLoanPaymentModal: false,
       selectedLoanForPayment: null,
       paymentData: {
-        amount: null,
+        amountToPayDisplay: null,
+        calculatedAmountToSend: null,
       },
       paymentError: null,
       paymentSuccessMessage: null,
       isProcessingPayment: false,
+      showDeleteLoanModal: false,
+      loanToDelete: null,
+      isDeletingLoan: false,
+      deleteLoanError: null,
     };
   },
   async created() {
@@ -291,6 +316,63 @@ export default {
     await  this.fetchUserLoans();
   },
   methods: {
+
+    calculateMonthlyInterest(outstandingPrincipal, annualInterestRate) {
+      if (outstandingPrincipal <= 0 || annualInterestRate < 0) {
+        return 0;
+      }
+      const monthlyRate = (annualInterestRate / 100) / 12;
+      return parseFloat((outstandingPrincipal * monthlyRate).toFixed(2));
+    },
+
+    formatDisplayedDebt(value) {
+      if (value === null || typeof value === 'undefined') return 'N/A';
+      if (Math.abs(value) < 0.005 || Object.is(value, -0)) {
+        return (0).toFixed(2);
+      }
+      return value.toFixed(2);
+    },
+    openDeleteLoanModal(loan) {
+      this.loanToDelete = loan;
+      this.deleteLoanError = null;
+      this.showDeleteLoanModal = true;
+    },
+    closeDeleteLoanModal() {
+      this.showDeleteLoanModal = false;
+      this.loanToDelete = null;
+      this.deleteLoanError = null;
+    },
+
+    async confirmDeleteLoan() {
+      if (!this.loanToDelete) return;
+
+      this.isDeletingLoan = true;
+      this.deleteLoanError = null;
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.deleteLoanError = "Помилка автентифікації. Спробуйте увійти знову.";
+          this.isDeletingLoan = false;
+          return;
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const loanId = this.loanToDelete.id;
+
+        await axios.delete(`/api/loans/${loanId}`, { headers });
+
+       // alert(`Історію кредиту #${loanId} успішно видалено.`);
+
+        await this.fetchUserLoans();
+        this.closeDeleteLoanModal();
+
+      } catch (error) {
+        console.error("Помилка видалення історії кредиту:", error);
+        this.deleteLoanError = error.response?.data?.error || "Не вдалося видалити історію кредиту. Спробуйте пізніше.";
+      } finally {
+        this.isDeletingLoan = false;
+      }
+    },
+
     async fetchUserLoans() {
       this.isLoadingLoans = true;
       this.loansError = null;
@@ -314,21 +396,48 @@ export default {
     },
     openLoanPaymentModal(loan) {
       this.selectedLoanForPayment = { ...loan };
-      this.paymentData.amount = loan.monthly_payment_amount ? parseFloat(loan.monthly_payment_amount.toFixed(2)) : null;
       this.paymentError = null;
       this.paymentSuccessMessage = null;
+
+      let amountToPay = 0;
+      if (loan.status === 'active' && loan.outstanding_principal > 0) {
+        const currentInterest = this.calculateMonthlyInterest(loan.outstanding_principal, loan.interest_rate);
+        const finalAmountDue = parseFloat((loan.outstanding_principal + currentInterest).toFixed(2));
+
+        if (loan.monthly_payment_amount && loan.monthly_payment_amount > finalAmountDue && finalAmountDue > 0) {
+
+          amountToPay = finalAmountDue;
+        } else if (loan.monthly_payment_amount > 0) {
+
+          amountToPay = parseFloat(loan.monthly_payment_amount.toFixed(2));
+        } else {
+          amountToPay = finalAmountDue;
+        }
+        if (amountToPay > finalAmountDue && finalAmountDue > 0) {
+          amountToPay = finalAmountDue;
+        }
+      }
+      this.paymentData.amountToPayDisplay = amountToPay > 0 ? amountToPay : null;
+      this.paymentData.calculatedAmountToSend = amountToPay > 0 ? amountToPay : null;
       this.showLoanPaymentModal = true;
     },
     closeLoanPaymentModal() {
       this.showLoanPaymentModal = false;
       this.selectedLoanForPayment = null;
-      this.paymentData.amount = null;
+      this.paymentData.amountToPayDisplay = null;
+      this.paymentData.calculatedAmountToSend = null;
     },
     async handleLoanPayment() {
-      if (!this.selectedLoanForPayment || !this.paymentData.amount || this.paymentData.amount <= 0) {
-        this.paymentError = "Будь ласка, введіть коректну суму платежу.";
+
+      if (!this.selectedLoanForPayment || !this.paymentData.calculatedAmountToSend || this.paymentData.calculatedAmountToSend <= 0) {
+        this.paymentError = "Сума для платежу не розрахована або некоректна.";
         return;
       }
+      if (this.activeCard && this.activeCard.balance < this.paymentData.calculatedAmountToSend) {
+        this.paymentError = `Недостатньо коштів на балансі картки. Потрібно: ${this.paymentData.calculatedAmountToSend.toFixed(2)} UAH`;
+        return;
+      }
+
       this.isProcessingPayment = true;
       this.paymentError = null;
       this.paymentSuccessMessage = null;
@@ -340,18 +449,17 @@ export default {
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        const payload = { paymentAmount: this.paymentData.amount };
+        const payload = { paymentAmount: this.paymentData.calculatedAmountToSend };
         const loanId = this.selectedLoanForPayment.id;
 
         const response = await axios.post(`/api/loans/${loanId}/pay`, payload, { headers });
 
         this.paymentSuccessMessage = response.data.message || "Платіж успішно здійснено!";
-        await this.fetchUserLoans(); // Оновлюємо список кредитів
-        await this.fetchCardData();  // Оновлюємо баланс картки, оскільки платіж міг бути з неї
+        await this.fetchUserLoans();
+        await this.fetchCardData();
 
         setTimeout(() => {
           this.closeLoanPaymentModal();
-          // paymentSuccessMessage очиститься при наступному відкритті модалки або можна очистити тут
         }, 500);
 
       } catch (error) {
@@ -612,7 +720,7 @@ export default {
 .page {
   text-align: center;
   padding: 20px;
-  max-width: 800px; /* Збільшено для кращого розміщення конвертера */
+  max-width: 800px;
   margin: 0 auto;
 }
 h1 {
@@ -652,11 +760,11 @@ h2 {
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  margin-top: 0; /* Забрав margin-top звідси, бо він був у .card-actions */
+  margin-top: 0;
   min-width: 200px;
 }
-.action-button.transfer-button { /* Якщо треба специфічний стиль для кнопки переказу */
-  margin-top: 20px; /* Повертаємо для першої кнопки, якщо вона одна */
+.action-button.transfer-button {
+  margin-top: 20px;
 }
 
 .action-button.renew-button {
@@ -677,7 +785,7 @@ h2 {
   padding: 10px;
   border-radius: 5px;
   font-weight: bold;
-  max-width: 400px; /* Обмежимо ширину повідомлень */
+  max-width: 400px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -715,7 +823,7 @@ h2 {
 .transfer-from-info p { margin: 5px 0; color: #ccc;}
 .form-group {
   margin-bottom: 18px;
-  text-align: left; /* Для label всередині form-group */
+  text-align: left;
 }
 .form-group label {
   display: block; margin-bottom: 8px; color: #cfd8dc;
@@ -724,7 +832,7 @@ h2 {
 .form-group input[type="text"],
 .form-group input[type="number"],
 .form-group input[type="password"],
-.form-group select { /* Додано select сюди */
+.form-group select {
   width: 100%; padding: 12px 15px; border: 1px solid #444;
   border-radius: 5px; background-color: #333; color: #fff;
   box-sizing: border-box; font-size: 16px;
@@ -733,35 +841,34 @@ h2 {
 .form-group input[type="text"]:focus,
 .form-group input[type="number"]:focus,
 .form-group input[type="password"]:focus,
-.form-group select:focus { /* Додано select сюди */
+.form-group select:focus {
   border-color: #42b983; box-shadow: 0 0 0 2px rgba(66,185,131,0.3); outline: none;
 }
 .form-group input::placeholder { color: #777; }
 
-.submit-button { /* Загальний стиль для submit кнопок */
+.submit-button {
   background-color: #42b983; padding: 12px 20px; color: #fff; border: none;
   border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;
   transition: background-color 0.3s ease; width: 100%;
-  /* margin-top: 10px; -- прибрано, якщо не потрібно для всіх кнопок submit */
 }
 .submit-button:hover { background-color: #369966; }
 .submit-button:disabled { background-color: #555; cursor: not-allowed; }
 
-.error-message { /* Загальний стиль для повідомлень про помилки */
+.error-message {
   color: #ff6b6b; background-color: rgba(255,107,107,0.1);
   border: 1px solid rgba(255,107,107,0.3); padding: 10px;
   border-radius: 5px; margin-bottom: 15px; font-size: 14px; text-align: center;
 }
-.success-message { /* Загальний стиль для повідомлень про успіх */
+.success-message {
   color: #42b983; background-color: rgba(66,185,131,0.1);
   border: 1px solid rgba(66,185,131,0.3); padding: 10px;
   border-radius: 5px; margin-bottom: 15px; font-size: 14px; text-align: center;
 }
-/* Стилі для конвертера валют з урахуванням компактності та вужчого блоку */
+
 .currency-converter-section.compact {
-  max-width: 550px; /* Зробимо блок конвертера вужчим */
-  margin-left: auto;   /* Центрування блоку */
-  margin-right: auto;  /* Центрування блоку */
+  max-width: 550px;
+  margin-left: auto;
+  margin-right: auto;
   margin-top: 30px;
   padding: 20px;
   background-color: rgb(55, 55, 55, 0.5);
@@ -783,7 +890,7 @@ h2 {
 
 .converter-form.compact .form-row.compact-row {
   display: flex;
-  flex-wrap: wrap; /* Дозволяємо перенос для вужчого контейнера */
+  flex-wrap: wrap;
   gap: 10px;
   align-items: flex-end;
 }
@@ -791,19 +898,19 @@ h2 {
 .converter-form.compact .form-group.compact-group {
   margin-bottom: 0;
   flex-grow: 1;
-  flex-shrink: 1; /* Дозволяємо зменшуватися */
+  flex-shrink: 1;
 }
 .converter-form.compact .form-group.compact-group.amount-group {
-  flex-basis: calc(50% - 5px); /* Наприклад, сума займає половину мінус gap */
+  flex-basis: calc(50% - 5px);
   min-width: 120px;
 }
 .converter-form.compact .form-group.compact-group.currency-group {
-  flex-basis: calc(50% - 5px); /* Селекти також по половині */
+  flex-basis: calc(50% - 5px);
   min-width: 100px;
 }
 .converter-form.compact .form-group.compact-group.button-group {
-  flex-basis: 100%; /* Кнопка на всю ширину, якщо перенеслася */
-  margin-top: 10px; /* Відступ, якщо кнопка на новому рядку */
+  flex-basis: 100%;
+  margin-top: 10px;
 }
 
 
@@ -816,23 +923,23 @@ h2 {
 .converter-form.compact select {
   padding: 8px 10px;
   font-size: 15px;
-  height: 38px; /* Трохи менша висота */
+  height: 38px;
 }
 
 .converter-form.compact .convert-button.compact-button {
-  padding: 8px 10px; /* Зменшено відступи кнопки */
+  padding: 8px 10px;
   font-size: 15px;
   height: 38px;
-  line-height: normal; /* Або 1.2 для кращого центрування */
-  width: 100%; /* Кнопка займає доступну ширину в button-group */
+  line-height: normal;
+  width: 100%;
 }
 
 .conversion-result.compact-result {
-  margin-top: 15px; /* Зменшено відступ */
+  margin-top: 15px;
   padding: 8px 10px;
 }
 .conversion-result.compact-result p {
-  font-size: 0.95em; /* Менший шрифт */
+  font-size: 0.95em;
   margin: 4px 0;
 }
 .conversion-result.compact-result strong {
@@ -852,13 +959,13 @@ h2 {
   margin-top: 10px;
 }
 
-@media (max-width: 480px) { /* Змінив брейкпойнт */
+@media (max-width: 480px) {
   .converter-form.compact .form-row.compact-row {
-    flex-direction: column; /* Все в стовпчик на дуже малих екранах */
-    align-items: stretch; /* Розтягуємо елементи на всю ширину */
+    flex-direction: column;
+    align-items: stretch;
   }
   .converter-form.compact .form-group.compact-group {
-    flex-basis: auto; /* Займають всю доступну ширину */
+    flex-basis: auto;
     width: 100%;
   }
   .converter-form.compact .form-group.compact-group.button-group {
@@ -872,7 +979,7 @@ h2 {
 .user-loans-section {
   margin-top: 40px;
   padding: 20px;
-  background-color: #252525; /* Темний фон для секції */
+  background-color: #252525;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
@@ -883,7 +990,7 @@ h2 {
 }
 .loans-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Адаптивні колонки */
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
 }
 .loan-item {
@@ -908,34 +1015,34 @@ h2 {
   align-items: center;
 }
 .status-badge {
-  font-weight: normal; /* Змінено з bold на normal */
+  font-weight: normal;
   padding: 4px 10px;
   border-radius: 15px;
   font-size: 0.85em;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border: 1px solid transparent; /* Для консистенції розміру */
+  border: 1px solid transparent;
 }
-/* Стилі для різних статусів кредиту */
+
 .loan-status-active .status-badge { background-color: #28a745; color: white; border-color: #1e7e34; }
 .loan-status-waiting .status-badge { background-color: #f0ad4e; color: #212529; border-color: #d58512; }
 .loan-status-closed .status-badge { background-color: #5bc0de; color: white; border-color: #31b0d5;}
 .loan-status-rejected .status-badge { background-color: #d9534f; color: white; border-color: #b52b27;}
-.loan-status-unpaid .status-badge { background-color: #c9302c; color: white; border-color: #ac2925;} /* Трохи темніший червоний для unpaid */
+.loan-status-unpaid .status-badge { background-color: #c9302c; color: white; border-color: #ac2925;}
 
 
 .loan-details p {
-  margin: 7px 0; /* Змінено */
+  margin: 7px 0;
   font-size: 0.9em;
   color: #c5c5c5;
   display: flex;
   justify-content: space-between;
-  flex-wrap: wrap; /* Дозволяє перенос, якщо значення довге */
+  flex-wrap: wrap;
 }
 .loan-details p strong {
   color: #e8e8e8;
   margin-right: 10px;
-  flex-shrink: 0; /* Щоб мітка не стискалася */
+  flex-shrink: 0;
 }
 .pay-loan-button {
   margin-top: 15px;
@@ -980,9 +1087,65 @@ h2 {
 .info-text.success { color: #28a745; font-weight: bold; }
 .info-text.error { color: #d9534f; font-weight: bold; }
 
-/* Стилі для модального вікна платежу по кредиту (успадковуються від .modal-content, але можна додати специфічні) */
 .loan-payment-details {
   border-bottom: 1px solid #333;
   padding-bottom: 15px;
+}
+
+.delete-loan-history-button {
+  background-color: #c9302c;
+  color: white;
+  padding: 6px 12px;
+  font-size: 0.85em;
+  margin-top: 10px;
+  align-self: flex-start;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.delete-loan-history-button:hover {
+  background-color: #a52825;
+}
+.delete-loan-history-button:disabled {
+  background-color: #555;
+  cursor: not-allowed;
+}
+
+.loan-actions-closed {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.delete-confirmation-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+.delete-confirmation-modal .submit-button {
+  width: auto;
+  padding: 10px 20px;
+  margin-top: 0;
+}
+.delete-confirmation-modal .delete-confirm-btn {
+  background-color: #d9534f;
+}
+.delete-confirmation-modal .delete-confirm-btn:hover {
+  background-color: #c9302c;
+}
+.delete-confirmation-modal .cancel-btn {
+  background-color: #555;
+}
+.delete-confirmation-modal .cancel-btn:hover {
+  background-color: #444;
+}
+
+.loan-details p span:last-child {
+  word-break: break-word;
+  text-align: right;
+  flex-grow: 1;
 }
 </style>
