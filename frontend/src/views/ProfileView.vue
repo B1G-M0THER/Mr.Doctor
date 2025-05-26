@@ -120,16 +120,26 @@
             <p><strong>Сума кредиту:</strong> {{ loan.amount.toFixed(2) }} UAH</p>
             <p><strong>Відсоткова ставка:</strong> {{ loan.interest_rate.toFixed(2) }}% річних</p>
             <p><strong>Термін:</strong> {{ loan.term }} місяців</p>
-            <p><strong>Дата видачі:</strong> {{ loan.activated_at ? new Date(loan.activated_at).toLocaleDateString('uk-UA') : (loan.status === 'waiting' || loan.status === 'rejected' ? new Date(loan.created_at).toLocaleDateString('uk-UA') : 'N/A') }}</p>
+            <p><strong>Дата видачі/заявки:</strong> {{ loan.activated_at ? new Date(loan.activated_at).toLocaleDateString('uk-UA') : (loan.status === 'waiting' || loan.status === 'rejected' ? new Date(loan.created_at).toLocaleDateString('uk-UA') : 'N/A') }}</p>
 
             <template v-if="loan.status === 'active'">
               <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? loan.monthly_payment_amount.toFixed(2) : 'Розраховується...' }} UAH</p>
-              <p><strong>Залишок боргу:</strong> <span v-if="loan.monthly_payment_amount && loan.term">{{ formatDisplayedDebt((loan.monthly_payment_amount * loan.term) - (loan.paid_amount || 0)) }} UAH</span><span v-else>Розраховується...</span></p>
+              <p><strong>Залишилось сплатити (всього з %):</strong> <span v-if="loan.monthly_payment_amount && loan.term">{{ formatDisplayedDebt((loan.monthly_payment_amount * loan.term) - (loan.paid_amount || 0)) }} UAH</span><span v-else>Розраховується...</span></p>
               <p><strong>Наступний платіж до:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
               <p><strong>Вже сплачено:</strong> {{ loan.paid_amount ? loan.paid_amount.toFixed(2) : '0.00' }} UAH</p>
               <p v-if="loan.last_payment_date"><strong>Останній платіж:</strong> {{ new Date(loan.last_payment_date).toLocaleDateString('uk-UA') }}</p>
               <button @click="openLoanPaymentModal(loan)" class="action-button pay-loan-button">Здійснити платіж</button>
             </template>
+
+            <template v-if="loan.status === 'unpaid'">
+              <p class="info-text error"><strong>Кредит прострочено!</strong></p>
+              <p><strong>Залишок основного боргу:</strong> {{ loan.outstanding_principal ? loan.outstanding_principal.toFixed(2) : 'N/A' }} UAH</p>
+              <p><strong>Нарахований штраф:</strong> <strong style="color: #ff6b6b;">{{ loan.accrued_penalty ? loan.accrued_penalty.toFixed(2) : '0.00' }} UAH</strong></p>
+              <p><strong>Пропущена дата платежу:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
+              <button v-if="loan.accrued_penalty && loan.accrued_penalty > 0" @click="openPayPenaltyModal(loan)" class="action-button pay-penalty-button">Сплатити штраф</button>
+              <p v-else class="info-text">Зверніться до підтримки для врегулювання заборгованості.</p>
+            </template>
+
 
             <p v-if="loan.status === 'waiting'" class="info-text">Заявка на розгляді.</p>
             <div v-if="loan.status === 'closed' || loan.status === 'rejected'" class="loan-actions-closed-rejected">
@@ -169,6 +179,25 @@
           <div v-if="paymentSuccessMessage" class="success-message">{{ paymentSuccessMessage }}</div>
           <button type="submit" class="submit-button" :disabled="isProcessingPayment || !paymentData.amountToPayDisplay || paymentData.amountToPayDisplay <=0">
             {{ isProcessingPayment ? 'Обробка...' : (paymentData.amountToPayDisplay && activeCard && activeCard.balance < paymentData.amountToPayDisplay ? 'Недостатньо коштів' : 'Сплатити') }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showPayPenaltyModal && penaltyToPayDetails" class="modal-overlay" @click.self="closePayPenaltyModal">
+      <div class="modal-content">
+        <span class="close-icon" @click="closePayPenaltyModal">&times;</span>
+        <h3>Сплата штрафу по кредиту #{{ penaltyToPayDetails.id }}</h3>
+        <div class="loan-payment-details">
+          <p><strong>Сума нарахованого штрафу:</strong> <strong style="color: #ff6b6b;">{{ penaltyToPayDetails.accrued_penalty ? penaltyToPayDetails.accrued_penalty.toFixed(2) : '0.00' }} UAH</strong></p>
+          <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
+          <p style="font-size: 0.9em; margin-top: 10px;">Після сплати штрафу статус кредиту буде змінено на "Активний", а наступна дата платежу буде встановлена через 3 дні.</p>
+        </div>
+        <form @submit.prevent="handlePayPenalty">
+          <div v-if="payPenaltyError" class="error-message">{{ payPenaltyError }}</div>
+          <div v-if="payPenaltySuccessMessage" class="success-message">{{ payPenaltySuccessMessage }}</div>
+          <button type="submit" class="submit-button pay-penalty-submit-btn" :disabled="isPayingPenalty || !penaltyToPayDetails.accrued_penalty || penaltyToPayDetails.accrued_penalty <= 0">
+            {{ isPayingPenalty ? 'Обробка...' : (activeCard && penaltyToPayDetails.accrued_penalty && activeCard.balance < penaltyToPayDetails.accrued_penalty ? 'Недостатньо коштів' : 'Сплатити штраф') }}
           </button>
         </form>
       </div>
@@ -301,19 +330,29 @@ export default {
       paymentError: null,
       paymentSuccessMessage: null,
       isProcessingPayment: false,
+
       showDeleteLoanModal: false,
       loanToDelete: null,
       isDeletingLoan: false,
       deleteLoanError: null,
+
+      showPayPenaltyModal: false,
+      penaltyToPayDetails: null,
+      isPayingPenalty: false,
+      payPenaltyError: null,
+      payPenaltySuccessMessage: null,
+
     };
   },
   async created() {
     await this.fetchUserData();
-    if (this.user && !this.renewalSuccessMessage) {
-      await this.fetchCardData();
+    if (this.user) {
+      if (!this.renewalSuccessMessage) {
+        await this.fetchCardData();
+      }
+      await this.fetchUserLoans();
     }
     await this.fetchSupportedCurrenciesNBU();
-    await  this.fetchUserLoans();
   },
   methods: {
 
@@ -332,11 +371,13 @@ export default {
       }
       return value.toFixed(2);
     },
+
     openDeleteLoanModal(loan) {
       this.loanToDelete = loan;
       this.deleteLoanError = null;
       this.showDeleteLoanModal = true;
     },
+
     closeDeleteLoanModal() {
       this.showDeleteLoanModal = false;
       this.loanToDelete = null;
@@ -355,12 +396,12 @@ export default {
           this.isDeletingLoan = false;
           return;
         }
-        const headers = { Authorization: `Bearer ${token}` };
+        const headers = {Authorization: `Bearer ${token}`};
         const loanId = this.loanToDelete.id;
 
-        await axios.delete(`/api/loans/${loanId}`, { headers });
+        await axios.delete(`/api/loans/${loanId}`, {headers});
 
-       // alert(`Історію кредиту #${loanId} успішно видалено.`);
+        // alert(`Історію кредиту #${loanId} успішно видалено.`);
 
         await this.fetchUserLoans();
         this.closeDeleteLoanModal();
@@ -382,8 +423,8 @@ export default {
           this.isLoadingLoans = false;
           return;
         }
-        const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/loans/my', { headers });
+        const headers = {Authorization: `Bearer ${token}`};
+        const response = await axios.get('/api/loans/my', {headers});
         this.userLoans = response.data;
       } catch (error) {
         console.error("Помилка завантаження кредитів:", error);
@@ -395,7 +436,7 @@ export default {
       }
     },
     openLoanPaymentModal(loan) {
-      this.selectedLoanForPayment = { ...loan };
+      this.selectedLoanForPayment = {...loan};
       this.paymentError = null;
       this.paymentSuccessMessage = null;
 
@@ -448,11 +489,11 @@ export default {
           this.isProcessingPayment = false;
           return;
         }
-        const headers = { Authorization: `Bearer ${token}` };
-        const payload = { paymentAmount: this.paymentData.calculatedAmountToSend };
+        const headers = {Authorization: `Bearer ${token}`};
+        const payload = {paymentAmount: this.paymentData.calculatedAmountToSend};
         const loanId = this.selectedLoanForPayment.id;
 
-        const response = await axios.post(`/api/loans/${loanId}/pay`, payload, { headers });
+        const response = await axios.post(`/api/loans/${loanId}/pay`, payload, {headers});
 
         this.paymentSuccessMessage = response.data.message || "Платіж успішно здійснено!";
         await this.fetchUserLoans();
@@ -484,9 +525,12 @@ export default {
       this.user = null;
       try {
         const token = localStorage.getItem('token');
-        if (!token) { this.$router.push('/'); return; }
-        const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/profile', { headers });
+        if (!token) {
+          this.$router.push('/');
+          return;
+        }
+        const headers = {Authorization: `Bearer ${token}`};
+        const response = await axios.get('/api/profile', {headers});
         this.user = response.data;
       } catch (error) {
         console.error("Помилка завантаження даних користувача:", error);
@@ -494,15 +538,21 @@ export default {
           localStorage.removeItem('token');
           this.$router.push('/');
         }
-      } finally { this.isLoadingUser = false; }
+      } finally {
+        this.isLoadingUser = false;
+      }
     },
     async fetchCardData() {
       this.isLoadingCard = true;
       try {
         const token = localStorage.getItem('token');
-        if (!token || !this.user) { this.isLoadingCard = false; this.activeCard = null; return; }
-        const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/cards/mycard', { headers });
+        if (!token || !this.user) {
+          this.isLoadingCard = false;
+          this.activeCard = null;
+          return;
+        }
+        const headers = {Authorization: `Bearer ${token}`};
+        const response = await axios.get('/api/cards/mycard', {headers});
         if (response.data && response.data.id) {
           this.activeCard = response.data;
         } else {
@@ -514,20 +564,30 @@ export default {
         } else {
           console.error("Помилка завантаження даних картки:", error.message);
         }
-      } finally { this.isLoadingCard = false; }
+      } finally {
+        this.isLoadingCard = false;
+      }
     },
     openTransferModal() {
-      if (!this.activeCard) { alert("Для здійснення переказу потрібна картка."); return; }
+      if (!this.activeCard) {
+        alert("Для здійснення переказу потрібна картка.");
+        return;
+      }
       if (this.activeCard.status !== 'active') {
         alert(`Перекази неможливі. Статус вашої картки: "${this.activeCard.status}".`);
         return;
       }
-      this.transferData = { receiverCardNumber: '', amount: null, senderCVV: '', senderPIN: '' };
-      this.transferError = null; this.transferSuccessMessage = null; this.showTransferModal = true;
+      this.transferData = {receiverCardNumber: '', amount: null, senderCVV: '', senderPIN: ''};
+      this.transferError = null;
+      this.transferSuccessMessage = null;
+      this.showTransferModal = true;
     },
-    closeTransferModal() { this.showTransferModal = false; },
+    closeTransferModal() {
+      this.showTransferModal = false;
+    },
     formatReceiverCardNumber(event) {
-      const input = event.target; let value = input.value.replace(/\D/g, '');
+      const input = event.target;
+      let value = input.value.replace(/\D/g, '');
       if (value.length > 16) value = value.substring(0, 16);
       let formattedValue = '';
       for (let i = 0; i < value.length; i++) {
@@ -542,42 +602,73 @@ export default {
         let tempRawCharCount = 0;
         let finalPos = 0;
 
-        for(let i=0; i < formattedValue.length; i++) {
-          if(/\d/.test(formattedValue[i])) { tempRawCharCount++; }
+        for (let i = 0; i < formattedValue.length; i++) {
+          if (/\d/.test(formattedValue[i])) {
+            tempRawCharCount++;
+          }
           finalPos++;
-          if(tempRawCharCount >= originalCharsBeforeCursor && originalCharsBeforeCursor > 0 ) {
-            if (formattedValue[i] === ' ' && originalValue[finalPos-2] !== ' ') {
+          if (tempRawCharCount >= originalCharsBeforeCursor && originalCharsBeforeCursor > 0) {
+            if (formattedValue[i] === ' ' && originalValue[finalPos - 2] !== ' ') {
             }
             break;
           }
-          if(originalCharsBeforeCursor === 0 && i >= input.selectionStart) break;
+          if (originalCharsBeforeCursor === 0 && i >= input.selectionStart) break;
         }
 
-        if (originalValue.length > formattedValue.length && originalValue.charAt(input.selectionStart -1) === ' ') {
-          newCursorPosition = input.selectionStart -1;
+        if (originalValue.length > formattedValue.length && originalValue.charAt(input.selectionStart - 1) === ' ') {
+          newCursorPosition = input.selectionStart - 1;
         } else {
           newCursorPosition = finalPos;
         }
 
         newCursorPosition = Math.min(newCursorPosition, formattedValue.length);
         newCursorPosition = Math.max(0, newCursorPosition);
-        try { input.setSelectionRange(newCursorPosition, newCursorPosition); } catch(e) { /* ігнор */ }
+        try {
+          input.setSelectionRange(newCursorPosition, newCursorPosition);
+        } catch (e) { /* ігнор */
+        }
       });
     },
     async handleTransferSubmit() {
-      this.transferLoading = true; this.transferError = null; this.transferSuccessMessage = null;
+      this.transferLoading = true;
+      this.transferError = null;
+      this.transferSuccessMessage = null;
       if (!this.activeCard || this.activeCard.status !== 'active') {
-        this.transferError = "Переказ неможливий: картка не активна."; this.transferLoading = false; return;
+        this.transferError = "Переказ неможливий: картка не активна.";
+        this.transferLoading = false;
+        return;
       }
       const receiverCardNumberClean = this.transferData.receiverCardNumber.replace(/\s/g, '');
       if (!receiverCardNumberClean || !this.transferData.amount || !this.transferData.senderCVV || !this.transferData.senderPIN) {
-        this.transferError = "Будь ласка, заповніть всі поля."; this.transferLoading = false; return;
+        this.transferError = "Будь ласка, заповніть всі поля.";
+        this.transferLoading = false;
+        return;
       }
-      if (receiverCardNumberClean.length !== 16) { this.transferError = "Номер картки отримувача повинен містити 16 цифр."; this.transferLoading = false; return; }
-      if (this.transferData.amount <= 0) { this.transferError = "Сума переказу повинна бути більшою за нуль."; this.transferLoading = false; return; }
-      if (this.activeCard.balance < this.transferData.amount) { this.transferError = "Недостатньо коштів на вашому балансі."; this.transferLoading = false; return; }
-      if (this.transferData.senderCVV.length !== 3) { this.transferError = "CVV повинен містити 3 цифри."; this.transferLoading = false; return; }
-      if (this.transferData.senderPIN.length !== 4) { this.transferError = "PIN-код повинен містити 4 цифри."; this.transferLoading = false; return; }
+      if (receiverCardNumberClean.length !== 16) {
+        this.transferError = "Номер картки отримувача повинен містити 16 цифр.";
+        this.transferLoading = false;
+        return;
+      }
+      if (this.transferData.amount <= 0) {
+        this.transferError = "Сума переказу повинна бути більшою за нуль.";
+        this.transferLoading = false;
+        return;
+      }
+      if (this.activeCard.balance < this.transferData.amount) {
+        this.transferError = "Недостатньо коштів на вашому балансі.";
+        this.transferLoading = false;
+        return;
+      }
+      if (this.transferData.senderCVV.length !== 3) {
+        this.transferError = "CVV повинен містити 3 цифри.";
+        this.transferLoading = false;
+        return;
+      }
+      if (this.transferData.senderPIN.length !== 4) {
+        this.transferError = "PIN-код повинен містити 4 цифри.";
+        this.transferLoading = false;
+        return;
+      }
       if (receiverCardNumberClean === this.activeCard.card_number.replace(/\s/g, '')) {
         this.transferError = "Неможливо переказати кошти на власну картку.";
         this.transferLoading = false;
@@ -586,38 +677,59 @@ export default {
 
       try {
         const token = localStorage.getItem('token');
-        if (!token) { this.transferError = "Помилка автентифікації."; this.transferLoading = false; return; }
-        const headers = { Authorization: `Bearer ${token}` };
+        if (!token) {
+          this.transferError = "Помилка автентифікації.";
+          this.transferLoading = false;
+          return;
+        }
+        const headers = {Authorization: `Bearer ${token}`};
         const payload = {
           receiverCardNumber: receiverCardNumberClean,
           amount: this.transferData.amount,
           senderCVV: this.transferData.senderCVV,
           senderPIN: this.transferData.senderPIN
         };
-        const response = await axios.post('/api/transactions/transfer', payload, { headers });
+        const response = await axios.post('/api/transactions/transfer', payload, {headers});
         this.transferSuccessMessage = response.data.message || "Переказ успішно виконано!";
         await this.fetchCardData();
-        setTimeout(() => { this.closeTransferModal(); this.transferSuccessMessage = null; }, 3000);
+        setTimeout(() => {
+          this.closeTransferModal();
+          this.transferSuccessMessage = null;
+        }, 3000);
       } catch (error) {
         this.transferError = error.response?.data?.error || "Помилка під час переказу.";
-      } finally { this.transferLoading = false; }
+      } finally {
+        this.transferLoading = false;
+      }
     },
     openRenewCardModal() {
-      this.renewalData = { newPin: '' }; this.renewalError = null;
-      this.renewalSuccessMessage = null; this.showRenewCardModal = true;
+      this.renewalData = {newPin: ''};
+      this.renewalError = null;
+      this.renewalSuccessMessage = null;
+      this.showRenewCardModal = true;
     },
-    closeRenewCardModal() { this.showRenewCardModal = false; },
+    closeRenewCardModal() {
+      this.showRenewCardModal = false;
+    },
     async handleRenewCardSubmit() {
-      this.renewalLoading = true; this.renewalError = null; this.renewalSuccessMessage = null;
+      this.renewalLoading = true;
+      this.renewalError = null;
+      this.renewalSuccessMessage = null;
       if (!this.renewalData.newPin || this.renewalData.newPin.length !== 4 || isNaN(this.renewalData.newPin)) {
-        this.renewalError = "Будь ласка, введіть коректний 4-значний PIN."; this.renewalLoading = false; return;
+        this.renewalError = "Будь ласка, введіть коректний 4-значний PIN.";
+        this.renewalLoading = false;
+        return;
       }
       try {
         const token = localStorage.getItem('token');
-        if (!token) { this.renewalError = "Помилка автентифікації."; this.renewalLoading = false; return; }
-        const headers = { Authorization: `Bearer ${token}` };
-        const payload = { newPin: this.renewalData.newPin };
-        const response = await axios.post('/api/cards/renew', payload, { headers });
+        if (!token) {
+          this.renewalError = "Помилка автентифікації.";
+          this.renewalLoading = false;
+          return;
+        }
+        const headers = {Authorization: `Bearer ${token}`};
+        const payload = {newPin: this.renewalData.newPin};
+        const response = await axios.post('/api/cards/renew', payload, {headers});
         this.renewalSuccessMessage = response.data.message || "Запит на поновлення картки прийнято!";
         if (response.data.updatedCardPreview) {
           this.activeCard = {
@@ -626,8 +738,12 @@ export default {
             card_number: response.data.updatedCardPreview.cardNumber,
             dueDate: response.data.updatedCardPreview.dueDate,
           };
-        } else { await this.fetchCardData(); }
-        setTimeout(() => { this.closeRenewCardModal(); }, 2500);
+        } else {
+          await this.fetchCardData();
+        }
+        setTimeout(() => {
+          this.closeRenewCardModal();
+        }, 2500);
       } catch (error) {
         this.renewalError = error.response?.data?.error || "Помилка під час запиту на поновлення картки.";
       } finally {
@@ -664,7 +780,7 @@ export default {
             this.conversionRequest.to = this.supportedCurrencies.find(c => c !== this.conversionRequest.from) || this.supportedCurrencies[1] || this.supportedCurrencies[0];
           }
         } else {
-          throw new Error("Некоректний формат відповіді від API курсів валют.");
+          new Error("Некоректний формат відповіді від API курсів валют.");
         }
       } catch (error) {
         console.error("Помилка завантаження списку валют НБУ:", error);
@@ -677,26 +793,47 @@ export default {
       }
     },
     async handleCurrencyConversion() {
-      const { amount, from, to } = this.conversionRequest;
+      const {amount, from, to} = this.conversionRequest;
       if (!amount || !from || !to) {
-        this.conversionResult = { ...this.conversionResult, error: "Будь ласка, заповніть всі поля.", convertedAmount: null, originalAmount: amount };
+        this.conversionResult = {
+          ...this.conversionResult,
+          error: "Будь ласка, заповніть всі поля.",
+          convertedAmount: null,
+          originalAmount: amount
+        };
         return;
       }
       if (amount <= 0) {
-        this.conversionResult = { ...this.conversionResult, error: "Сума повинна бути більшою за нуль.", convertedAmount: null, originalAmount: amount };
+        this.conversionResult = {
+          ...this.conversionResult,
+          error: "Сума повинна бути більшою за нуль.",
+          convertedAmount: null,
+          originalAmount: amount
+        };
         return;
       }
       if (from === to) {
-        this.conversionResult = { ...this.conversionResult, error: "Валюти мають бути різними.", convertedAmount: null, originalAmount: amount };
+        this.conversionResult = {
+          ...this.conversionResult,
+          error: "Валюти мають бути різними.",
+          convertedAmount: null,
+          originalAmount: amount
+        };
         return;
       }
       this.isLoadingConversion = true;
-      this.conversionResult = { originalAmount: amount, convertedAmount: null, rate: null, date: this.nbuExchangeDate, error: null };
+      this.conversionResult = {
+        originalAmount: amount,
+        convertedAmount: null,
+        rate: null,
+        date: this.nbuExchangeDate,
+        error: null
+      };
       try {
         const rateFrom = this.allRates[from];
         const rateTo = this.allRates[to];
         if (typeof rateFrom === 'undefined' || typeof rateTo === 'undefined') {
-          throw new Error("Обрані валюти не підтримуються або курси для них не знайдено.");
+          new Error("Обрані валюти не підтримуються або курси для них не знайдено.");
         }
         let amountInUAH = (from === 'UAH') ? parseFloat(amount) : parseFloat(amount) * rateFrom;
         let finalConvertedAmount = (to === 'UAH') ? amountInUAH : amountInUAH / rateTo;
@@ -710,6 +847,60 @@ export default {
       } finally {
         this.isLoadingConversion = false;
       }
+
+    },
+
+    openPayPenaltyModal(loan) {
+      this.penaltyToPayDetails = {...loan};
+      this.payPenaltyError = null;
+      this.payPenaltySuccessMessage = null;
+      this.showPayPenaltyModal = true;
+    },
+    closePayPenaltyModal() {
+      this.showPayPenaltyModal = false;
+      this.penaltyToPayDetails = null;
+    },
+    async handlePayPenalty() {
+      if (!this.penaltyToPayDetails || !this.penaltyToPayDetails.accrued_penalty || this.penaltyToPayDetails.accrued_penalty <= 0) {
+        this.payPenaltyError = "Сума штрафу для сплати не визначена або нульова.";
+        return;
+      }
+      if (this.activeCard && this.activeCard.balance < this.penaltyToPayDetails.accrued_penalty) {
+        this.payPenaltyError = `Недостатньо коштів на балансі картки. Потрібно: ${this.penaltyToPayDetails.accrued_penalty.toFixed(2)} UAH`;
+        return;
+      }
+
+      this.isPayingPenalty = true;
+      this.payPenaltyError = null;
+      this.payPenaltySuccessMessage = null;
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.payPenaltyError = "Помилка автентифікації.";
+          this.isPayingPenalty = false;
+          return;
+        }
+        const headers = {Authorization: `Bearer ${token}`};
+        const loanId = this.penaltyToPayDetails.id;
+
+        const response = await axios.post(`/api/loans/${loanId}/pay-penalty`, {}, {headers});
+
+        this.payPenaltySuccessMessage = response.data.message || "Штраф успішно сплачено!";
+        await this.fetchUserLoans();
+        await this.fetchCardData();
+
+        setTimeout(() => {
+          this.closePayPenaltyModal();
+        }, 2500);
+
+      } catch (error) {
+        console.error("Помилка сплати штрафу по кредиту:", error);
+        this.payPenaltyError = error.response?.data?.error || "Не вдалося сплатити штраф.";
+      } finally {
+        this.isPayingPenalty = false;
+      }
+
     }
   }
 };
@@ -1147,5 +1338,35 @@ h2 {
   word-break: break-word;
   text-align: right;
   flex-grow: 1;
+}
+
+.loan-actions-closed-rejected { /* Додав, щоб стилізувати контейнер кнопки видалення */
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.modal-content .loan-payment-details { /* Вже є, можна використати */
+  border-bottom: 1px solid #333;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.pay-penalty-button {
+  margin-top: 10px;
+  background-color: #dc3545;
+  color: white;
+}
+.pay-penalty-button:hover {
+  background-color: #c82333;
+}
+
+.pay-penalty-submit-btn { /* Якщо потрібен окремий стиль для кнопки в модалці штрафу */
+  background-color: #28a745; /* Зелений для підтвердження дії */
+}
+.pay-penalty-submit-btn:hover {
+  background-color: #218838;
 }
 </style>

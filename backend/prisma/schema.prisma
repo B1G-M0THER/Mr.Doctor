@@ -48,9 +48,12 @@ model Loans {
   last_payment_date      DateTime?
   activated_at           DateTime?
 
+  accrued_penalty               Float?   @default(0)
+  last_penalty_calculation_date DateTime?
+
   Users         Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
   LoanPayments  LoanPayment[]
-  }
+}
 
 model LoanPayment {
   id              Int      @id @default(autoincrement())
