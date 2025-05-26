@@ -28,7 +28,7 @@
           <td>{{ loan.interest_rate.toFixed(2) }}</td>
           <td>{{ new Date(loan.created_at).toLocaleDateString('uk-UA') }} {{ new Date(loan.created_at).toLocaleTimeString('uk-UA') }}</td>
           <td class="actions-cell">
-            <button @click="openDecisionModal(loan)" class="action-button confirm" :disabled="loan.isProcessing">
+            <button @click="openApproveConfirmationModal(loan)" class="action-button confirm" :disabled="loan.isProcessing">
               {{ loan.isProcessing && loan.currentAction === 'approve' ? 'Обробка...' : 'Схвалити' }}
             </button>
             <button @click="processLoanDecision(loan.id, 'reject')" class="action-button reject" :disabled="loan.isProcessing">
@@ -40,29 +40,27 @@
       </table>
     </div>
 
-    <div v-if="showDecisionModal && selectedLoan" class="modal-overlay" @click.self="closeDecisionModal">
+    <div v-if="showApproveModal && selectedLoan" class="modal-overlay" @click.self="closeApproveConfirmationModal">
       <div class="modal-content">
-        <span class="close-icon" @click="closeDecisionModal">&times;</span>
-        <h3>Рішення по кредиту #{{ selectedLoan.id }}</h3>
+        <span class="close-icon" @click="closeApproveConfirmationModal">&times;</span>
+        <h3>Схвалення кредиту #{{ selectedLoan.id }}</h3>
         <p><strong>Користувач:</strong> {{ selectedLoan.Users.name }} ({{selectedLoan.Users.email}})</p>
         <div class="loan-details-review">
           <p><strong>Запит:</strong> {{ selectedLoan.amount.toFixed(2) }} UAH на {{ selectedLoan.term }} міс.</p>
-          <p><strong>Запропонована системою ставка:</strong> {{ selectedLoan.interest_rate.toFixed(2) }}%</p>
+          <p><strong>Відсоткова ставка (незмінна):</strong> {{ selectedLoan.interest_rate.toFixed(2) }}%</p>
         </div>
-        <form @submit.prevent="processLoanDecision(selectedLoan.id, 'approve', true)">
-          <div class="form-group">
-            <label :for="'finalRate-' + selectedLoan.id">Встановіть фінальну ставку (% річних):</label>
-            <input type="number" :id="'finalRate-' + selectedLoan.id" v-model.number="decisionForm.finalInterestRate" step="0.01" min="0" required>
-          </div>
-          <div class="form-group">
-            <label :for="'finalTerm-' + selectedLoan.id">Встановіть фінальний термін (міс.):</label>
-            <input type="number" :id="'finalTerm-' + selectedLoan.id" v-model.number="decisionForm.finalTerm" step="1" min="1" required>
-          </div>
-          <div v-if="decisionError" class="error-message">{{ decisionError }}</div>
-          <button type="submit" class="submit-button" :disabled="selectedLoan.isProcessing || isLoadingDecision">
-            {{ (selectedLoan.isProcessing && selectedLoan.currentAction === 'approve') || isLoadingDecision ? 'Обробка...' : 'Схвалити та видати кредит' }}
+        <p class="confirmation-question">Ви впевнені, що хочете схвалити цей кредит на зазначених умовах та зарахувати кошти на картку користувача?</p>
+
+        <div v-if="decisionErrorInModal" class="error-message">{{ decisionErrorInModal }}</div>
+
+        <div class="modal-actions">
+          <button @click="processLoanDecision(selectedLoan.id, 'approve')" class="submit-button confirm-action-btn" :disabled="isLoadingDecision || (selectedLoan && selectedLoan.isProcessing)">
+            {{ (selectedLoan && selectedLoan.isProcessing && selectedLoan.currentAction === 'approve') || isLoadingDecision ? 'Обробка...' : 'Так, схвалити' }}
           </button>
-        </form>
+          <button @click="closeApproveConfirmationModal" class="submit-button cancel-action-btn" :disabled="isLoadingDecision || (selectedLoan && selectedLoan.isProcessing)">
+            Скасувати
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -80,13 +78,9 @@ export default {
     const pendingLoans = ref([]);
     const isLoading = ref(true);
     const error = ref(null);
-    const showDecisionModal = ref(false);
+    const showApproveModal = ref(false);
     const selectedLoan = ref(null);
-    const decisionForm = ref({
-      finalInterestRate: null,
-      finalTerm: null,
-    });
-    const decisionError = ref(null);
+    const decisionErrorInModal = ref(null);
     const isLoadingDecision = ref(false);
 
     const fetchPendingLoans = async () => {
@@ -113,31 +107,28 @@ export default {
       }
     };
 
-    const openDecisionModal = (loan) => {
+    const openApproveConfirmationModal = (loan) => {
       selectedLoan.value = { ...loan };
-      decisionForm.value.finalInterestRate = loan.interest_rate;
-      decisionForm.value.finalTerm = loan.term;
-      decisionError.value = null;
-      showDecisionModal.value = true;
+      decisionErrorInModal.value = null;
+      showApproveModal.value = true;
     };
 
-    const closeDecisionModal = () => {
-      showDecisionModal.value = false;
+    const closeApproveConfirmationModal = () => {
+      showApproveModal.value = false;
       selectedLoan.value = null;
     };
 
-    const processLoanDecision = async (loanId, decisionAction, fromModal = false) => {
-      const loanRef = pendingLoans.value.find(l => l.id === loanId) || selectedLoan.value;
-      if (loanRef) {
-        loanRef.isProcessing = true;
-        loanRef.currentAction = decisionAction;
+    const processLoanDecision = async (loanId, decisionAction) => {
+      const loanInList = pendingLoans.value.find(l => l.id === loanId);
+      const currentProcessingLoan = selectedLoan.value && selectedLoan.value.id === loanId ? selectedLoan.value : loanInList;
+
+
+      if (currentProcessingLoan) {
+        currentProcessingLoan.isProcessing = true;
+        currentProcessingLoan.currentAction = decisionAction;
       }
-      if (fromModal) {
-        decisionError.value = null;
-        isLoadingDecision.value = true;
-      } else {
-        isLoadingDecision.value = true;
-      }
+      isLoadingDecision.value = true;
+      if (decisionAction === 'approve') decisionErrorInModal.value = null;
 
 
       try {
@@ -145,34 +136,27 @@ export default {
         if (!token) {
           alert("Сесія закінчилася. Будь ласка, увійдіть знову.");
           await router.push('/');
-          if (loanRef) loanRef.isProcessing = false;
+          if (currentProcessingLoan) currentProcessingLoan.isProcessing = false;
           isLoadingDecision.value = false;
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-
-        let payload = { decision: decisionAction };
-        if (decisionAction === 'approve' && fromModal) {
-          if (decisionForm.value.finalInterestRate <=0 || decisionForm.value.finalTerm <=0) {
-            decisionError.value = "Ставка та термін мають бути позитивними.";
-            if (loanRef) loanRef.isProcessing = false;
-            isLoadingDecision.value = false;
-            return;
-          }
-          payload.finalInterestRate = decisionForm.value.finalInterestRate;
-          payload.finalTerm = decisionForm.value.finalTerm;
-        }
+        const payload = { decision: decisionAction };
 
         const response = await axios.post(`/api/admin/loans/decide/${loanId}`, payload, { headers });
         alert(response.data.message || `Рішення '${decisionAction}' по заявці #${loanId} прийнято.`);
         pendingLoans.value = pendingLoans.value.filter(l => l.id !== loanId);
-        if (fromModal) closeDecisionModal();
+
+        if (showApproveModal.value && selectedLoan.value && selectedLoan.value.id === loanId) {
+          closeApproveConfirmationModal();
+        }
 
       } catch (err) {
         console.error(`Помилка при рішенні '${decisionAction}' по заявці #${loanId}:`, err);
         const errorMessage = err.response?.data?.error || `Не вдалося обробити заявку #${loanId}.`;
-        if (fromModal) {
-          decisionError.value = errorMessage;
+
+        if (showApproveModal.value && decisionAction === 'approve' && selectedLoan.value && selectedLoan.value.id === loanId) {
+          decisionErrorInModal.value = errorMessage;
         } else {
           alert(errorMessage);
         }
@@ -181,9 +165,9 @@ export default {
           await router.push('/');
         }
       } finally {
-        if (loanRef) {
-          loanRef.isProcessing = false;
-          loanRef.currentAction = null;
+        if (currentProcessingLoan) {
+          currentProcessingLoan.isProcessing = false;
+          currentProcessingLoan.currentAction = null;
         }
         isLoadingDecision.value = false;
       }
@@ -195,13 +179,12 @@ export default {
       pendingLoans,
       isLoading,
       error,
-      showDecisionModal,
+      showApproveModal,
       selectedLoan,
-      decisionForm,
-      decisionError,
+      decisionErrorInModal,
       isLoadingDecision,
-      openDecisionModal,
-      closeDecisionModal,
+      openApproveConfirmationModal,
+      closeApproveConfirmationModal,
       processLoanDecision,
     };
   }
@@ -376,44 +359,18 @@ h1 {
   font-size: 0.95em;
 }
 
-.form-group {
-  margin-bottom: 15px;
-  text-align: left;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  color: #cfd8dc;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.form-group input[type="number"] {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #444;
-  border-radius: 5px;
-  background-color: #333;
-  color: #fff;
-  box-sizing: border-box;
-  font-size: 15px;
-}
-
-.form-group input[type="number"]:focus {
-  border-color: #42b983;
-  box-shadow: 0 0 0 2px rgba(66, 185, 131, 0.3);
-  outline: none;
+.confirmation-question {
+  margin: 20px 0;
+  text-align: center;
+  font-size: 1.05em;
+  color: #e0e0e0;
 }
 
 .submit-button {
   background-color: #42b983;
-  padding: 12px 20px;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
+  padding: 12px 20px; color: #fff;
+  border: none; border-radius: 5px;
+  cursor: pointer; font-size: 16px;
   font-weight: bold;
   transition: background-color 0.3s ease;
   width: 100%;
@@ -422,18 +379,30 @@ h1 {
 
 .submit-button:disabled {
   background-color: #555;
-  cursor: not-allowed;
+  cursor:not-allowed;
 }
 
-.error-message {
-  color: #ff6b6b;
-  background-color: rgba(255, 107, 107, 0.1);
-  border: 1px solid rgba(255, 107, 107, 0.3);
-  padding: 10px;
-  border-radius: 5px;
-  margin-bottom: 15px;
-  font-size: 14px;
-  text-align: center;
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  margin-top: 25px;
 }
-
+.modal-actions .submit-button {
+  width: auto;
+  padding: 10px 20px;
+  margin-top: 0;
+}
+.modal-actions .confirm-action-btn {
+  background-color: #28a745;
+}
+.modal-actions .confirm-action-btn:hover {
+  background-color: #218838;
+}
+.modal-actions .cancel-action-btn {
+  background-color: #dc3545;
+}
+.modal-actions .cancel-action-btn:hover {
+  background-color: #c82333;
+}
 </style>
