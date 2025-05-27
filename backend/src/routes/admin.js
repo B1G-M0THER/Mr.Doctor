@@ -3,6 +3,7 @@ import prisma from "../config/prisma.js";
 import jwt from "jsonwebtoken";
 import Cards from "../constants/cards.js";
 import Loans from "../constants/loans.js";
+import Deposits from "../constants/deposits.js";
 import { calculateEMI, calculateNextPaymentDate } from "../utils/loanUtils.js";
 
 const router = express.Router();
@@ -241,6 +242,95 @@ router.post("/loans/decide/:loanId", async (req, res) => {
         }
         if (error.message && error.message.startsWith("Неможливо видати кредит:")) {
             return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: "Внутрішня помилка сервера." });
+    }
+});
+
+router.get("/deposits/pending", async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const admin = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!admin || admin.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const pendingDeposits = await prisma.deposits.findMany({
+            where: { status: Deposits.waiting_approval },
+            include: { Users: { select: { id: true, name: true, email: true } } },
+            orderBy: { created_at: 'asc' }
+        });
+        res.status(200).json(pendingDeposits);
+    } catch (error) {
+        console.error("Помилка отримання заявок на депозит:", error);
+        if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ error: "Недійсний або прострочений токен." });
+        }
+        res.status(500).json({ error: "Помилка сервера при отриманні заявок на депозит." });
+    }
+});
+
+router.post("/deposits/decide/:depositId", async (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
+
+    const { depositId } = req.params;
+    const { decision } = req.body; // 'approve' or 'reject'
+
+    try {
+        const decoded = jwt.verify(token, process.env.SECRET_KEY);
+        const adminUser = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!adminUser || adminUser.role !== "ADMIN") return res.status(403).json({ error: "Доступ заборонено." });
+
+        const deposit = await prisma.deposits.findUnique({ where: { id: parseInt(depositId) } });
+        if (!deposit) return res.status(404).json({ error: "Заявку на депозит не знайдено." });
+        if (deposit.status !== Deposits.waiting_approval) {
+            return res.status(400).json({ error: `Неможливо змінити статус. Поточний статус депозиту: ${deposit.status}` });
+        }
+
+        if (decision === 'approve') {
+            const userCard = await prisma.cards.findFirst({
+                where: { holder_id: deposit.user_id, status: Cards.active }
+            });
+            if (!userCard) {
+                return res.status(400).json({ error: `Неможливо схвалити депозит: у користувача (ID: ${deposit.user_id}) немає активної картки.` });
+            }
+            if (userCard.balance < deposit.amount) {
+                return res.status(400).json({ error: `Неможливо схвалити депозит: недостатньо коштів на картці користувача (ID: ${deposit.user_id}). Потрібно ${deposit.amount.toFixed(2)}, доступно ${userCard.balance.toFixed(2)}.` });
+            }
+
+            const approvalTime = new Date();
+            let calculatedMaturityDate = new Date(approvalTime);
+            calculatedMaturityDate.setMonth(calculatedMaturityDate.getMonth() + deposit.term);
+
+            await prisma.$transaction(async (tx) => {
+                await tx.cards.update({
+                    where: { id: userCard.id },
+                    data: { balance: { decrement: deposit.amount } }
+                });
+                const approvedDeposit = await tx.deposits.update({
+                    where: { id: parseInt(depositId) },
+                    data: {
+                        status: Deposits.active,
+                        approved_at: approvalTime,
+                        maturity_date: calculatedMaturityDate,
+                    },
+                });
+                return res.status(200).json({ message: "Депозит схвалено, кошти списано з картки користувача.", deposit: approvedDeposit });
+            });
+        } else if (decision === 'reject') {
+            const rejectedDeposit = await prisma.deposits.update({
+                where: { id: parseInt(depositId) },
+                data: { status: Deposits.rejected },
+            });
+            return res.status(200).json({ message: "Заявку на депозит відхилено.", deposit: rejectedDeposit });
+        } else {
+            return res.status(400).json({ error: "Невірна дія. Можливі значення: 'approve', 'reject'." });
+        }
+    } catch (error) {
+        console.error("Помилка при обробці заявки на депозит:", error);
+        if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ error: "Недійсний або прострочений токен." });
         }
         res.status(500).json({ error: "Внутрішня помилка сервера." });
     }

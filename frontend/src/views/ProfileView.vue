@@ -174,10 +174,15 @@
           <p><strong>Сума до сплати:</strong> <strong style="color: #42b983;">{{ paymentData.amountToPayDisplay ? paymentData.amountToPayDisplay.toFixed(2) : 'Розрахунок...' }} UAH</strong></p>
           <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
         </div>
+        <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
+          <span v-if="activeCard.status === 'expired'">Платіж неможливий: термін дії вашої картки закінчився.</span>
+          <span v-else-if="activeCard.status === 'blocked'">Платіж неможливий: ваша картка заблокована.</span>
+          <span v-else>Платіж неможливий: ваша картка не активна (статус: {{ activeCard.status }}).</span>
+        </div>
         <form @submit.prevent="handleLoanPayment">
           <div v-if="paymentError" class="error-message">{{ paymentError }}</div>
           <div v-if="paymentSuccessMessage" class="success-message">{{ paymentSuccessMessage }}</div>
-          <button type="submit" class="submit-button" :disabled="isProcessingPayment || !paymentData.amountToPayDisplay || paymentData.amountToPayDisplay <=0">
+          <button type="submit" class="submit-button" :disabled="isProcessingPayment || !paymentData.amountToPayDisplay || paymentData.amountToPayDisplay <=0 || (activeCard && activeCard.status !== 'active')">
             {{ isProcessingPayment ? 'Обробка...' : (paymentData.amountToPayDisplay && activeCard && activeCard.balance < paymentData.amountToPayDisplay ? 'Недостатньо коштів' : 'Сплатити') }}
           </button>
         </form>
@@ -193,10 +198,15 @@
           <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
           <p style="font-size: 0.9em; margin-top: 10px;">Після сплати штрафу статус кредиту буде змінено на "Активний", а наступна дата платежу буде встановлена через 3 дні.</p>
         </div>
+        <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
+          <span v-if="activeCard.status === 'expired'">Сплата штрафу неможлива: термін дії вашої картки закінчився.</span>
+          <span v-else-if="activeCard.status === 'blocked'">Сплата штрафу неможлива: ваша картка заблокована.</span>
+          <span v-else>Сплата штрафу неможлива: ваша картка не активна (статус: {{ activeCard.status }}).</span>
+        </div>
         <form @submit.prevent="handlePayPenalty">
           <div v-if="payPenaltyError" class="error-message">{{ payPenaltyError }}</div>
           <div v-if="payPenaltySuccessMessage" class="success-message">{{ payPenaltySuccessMessage }}</div>
-          <button type="submit" class="submit-button pay-penalty-submit-btn" :disabled="isPayingPenalty || !penaltyToPayDetails.accrued_penalty || penaltyToPayDetails.accrued_penalty <= 0">
+          <button type="submit" class="submit-button pay-penalty-submit-btn" :disabled="isPayingPenalty || !penaltyToPayDetails.accrued_penalty || penaltyToPayDetails.accrued_penalty <= 0 || (activeCard && activeCard.status !== 'active')">
             {{ isPayingPenalty ? 'Обробка...' : (activeCard && penaltyToPayDetails.accrued_penalty && activeCard.balance < penaltyToPayDetails.accrued_penalty ? 'Недостатньо коштів' : 'Сплатити штраф') }}
           </button>
         </form>
@@ -265,11 +275,125 @@
       </div>
     </div>
   </div>
+
+  <div class="user-deposits-section">
+    <h2>Мої депозити</h2>
+    <div v-if="depositStore.isLoading" class="loading-message"><p>Завантаження інформації про депозити...</p></div>
+    <div v-else-if="depositStore.error && !userDepositsFromStore.length" class="error-message">{{ depositStore.error }}</div>
+    <div v-else-if="!userDepositsFromStore || userDepositsFromStore.length === 0" class="no-requests">
+      <p>У вас немає відкритих депозитів. <router-link to="/deposit">Відкрити депозит?</router-link></p>
+    </div>
+    <div v-else class="deposits-grid">
+      <div v-for="deposit in userDepositsFromStore" :key="deposit.id" class="deposit-item" :class="`deposit-status-${deposit.status}`">
+        <template v-if="isDepositMatured(deposit)">
+          <h3>Депозит #{{ deposit.id }} <span class="status-badge deposit-status-matured-display">{{ getDepositStatusText('matured') }}</span></h3>
+        </template>
+        <template v-else>
+          <h3>Депозит #{{ deposit.id }} <span class="status-badge">{{ getDepositStatusText(deposit.status) }}</span></h3>
+        </template>
+        <div class="deposit-details">
+          <p><strong>Сума вкладу:</strong> {{ deposit.amount.toFixed(2) }} UAH</p>
+          <p><strong>Річна ставка:</strong> {{ deposit.interest_rate.toFixed(2) }}%</p>
+          <p><strong>Термін:</strong> {{ deposit.term }} місяців</p>
+          <p><strong>Дата заявки:</strong> {{ new Date(deposit.created_at).toLocaleDateString('uk-UA') }}</p>
+          <p v-if="deposit.approved_at"><strong>Дата активації:</strong> {{ new Date(deposit.approved_at).toLocaleDateString('uk-UA') }}</p>
+
+          <template v-if="deposit.status === 'active'">
+            <p><strong>Поточна сума (з відсотками):</strong> {{ deposit.current_value ? deposit.current_value.toFixed(2) : deposit.amount.toFixed(2) }} UAH</p>
+            <p><strong>Нараховано відсотків (до {{ isDepositMatured(deposit) ? new Date(deposit.maturity_date).toLocaleDateString('uk-UA') : 'сьогодні' }}):</strong> {{ deposit.calculated_accrued_interest ? deposit.calculated_accrued_interest.toFixed(2) : '0.00' }} UAH</p>
+            <p><strong>Дата завершення:</strong> {{ calculateDepositEndDate(deposit.approved_at, deposit.term) }}</p>
+            <button
+                v-if="deposit.status === 'active' && !isDepositMatured(deposit)"
+                @click="openEarlyWithdrawalModal(deposit)"
+                class="action-button withdraw-early-button"
+                :disabled="!activeCard || activeCard.status !== 'active'">
+              Достроково розірвати
+            </button>
+            <button
+                v-else-if="deposit.status === 'active' && isDepositMatured(deposit)"
+                @click="openWithdrawMaturedModal(deposit)"
+                class="action-button get-funds-button"
+                :disabled="!activeCard || activeCard.status !== 'active'">
+              Отримати кошти
+            </button>
+            <small v-if="activeCard && activeCard.status !== 'active'" class="text-warning d-block mt-2">
+              Для дострокового розірвання потрібна активна картка.
+            </small>
+          </template>
+
+          <p v-if="deposit.status === 'closed_early' || deposit.status === 'closed_by_term'">
+            <strong>Дата закриття:</strong> {{ new Date(deposit.closed_at).toLocaleDateString('uk-UA') }}<br/>
+            <strong>Виплачено відсотків:</strong> {{ deposit.calculated_accrued_interest ? deposit.calculated_accrued_interest.toFixed(2) : 'N/A' }} UAH<br/>
+            <strong>Загальна сума виплати:</strong> {{ deposit.calculated_total_payout ? deposit.calculated_total_payout.toFixed(2) : 'N/A' }} UAH
+          </p>
+          <p v-if="deposit.status === 'rejected'" class="info-text error">Заявку на депозит відхилено.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="showWithdrawMaturedModal && selectedDepositForMaturedWithdrawal" class="modal-overlay" @click.self="closeWithdrawMaturedModal">
+    <div class="modal-content">
+      <span class="close-icon" @click="closeWithdrawMaturedModal">&times;</span>
+      <h3>Отримання коштів по депозиту #{{ selectedDepositForMaturedWithdrawal.id }}</h3>
+      <div class="deposit-withdrawal-details">
+        <p><strong>Сума вкладу:</strong> {{ selectedDepositForMaturedWithdrawal.amount.toFixed(2) }} UAH</p>
+        <p><strong>Нараховані відсотки за весь термін:</strong> {{ selectedDepositForMaturedWithdrawal.calculated_accrued_interest ? selectedDepositForMaturedWithdrawal.calculated_accrued_interest.toFixed(2) : 'Розрахунок...' }} UAH</p>
+        <p><strong>Загальна сума до виплати на картку:</strong> <strong style="color: #42b983;">{{ selectedDepositForMaturedWithdrawal.current_value ? selectedDepositForMaturedWithdrawal.current_value.toFixed(2) : 'Розрахунок...' }} UAH</strong></p>
+      </div>
+      <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
+        <span v-if="activeCard.status === 'expired'">Виведення неможливе: термін дії вашої картки закінчився.</span>
+        <span v-else-if="activeCard.status === 'blocked'">Виведення неможливе: ваша картка заблокована.</span>
+        <span v-else>Виведення неможливе: ваша картка не активна (статус: {{ activeCard.status }}).</span>
+      </div>
+      <form @submit.prevent="handleWithdrawMatured">
+        <div v-if="maturedWithdrawalError || depositStore.error" class="error-message">{{ maturedWithdrawalError || depositStore.error }}</div>
+        <div v-if="maturedWithdrawalSuccessMessage || depositStore.withdrawalMessage" class="success-message">{{ maturedWithdrawalSuccessMessage || depositStore.withdrawalMessage }}</div>
+        <button
+            type="submit"
+            class="submit-button confirm-action-btn"
+            :disabled="isProcessingMaturedWithdrawal || (activeCard && activeCard.status !== 'active')">
+          {{ isProcessingMaturedWithdrawal ? 'Обробка...' : 'Отримати кошти' }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div v-if="showEarlyWithdrawalModal && selectedDepositForWithdrawal" class="modal-overlay" @click.self="closeEarlyWithdrawalModal">
+    <div class="modal-content">
+      <span class="close-icon" @click="closeEarlyWithdrawalModal">&times;</span>
+      <h3>Дострокове розірвання депозиту #{{ selectedDepositForWithdrawal.id }}</h3>
+      <div class="deposit-withdrawal-details">
+        <p><strong>Сума вкладу:</strong> {{ selectedDepositForWithdrawal.amount.toFixed(2) }} UAH</p>
+        <p><strong>Нараховані відсотки (до штрафу):</strong> {{ calculatedEarlyWithdrawal.initialInterest.toFixed(2) }} UAH</p>
+        <p><strong>Штраф за дострокове розірвання ({{ selectedDepositForWithdrawal.early_withdrawal_penalty_percent || 50 }}% від відсотків):</strong> <span style="color: #ff6b6b;">{{ calculatedEarlyWithdrawal.penaltyAmount.toFixed(2) }} UAH</span></p>
+        <p><strong>Відсотки до виплати (після штрафу):</strong> {{ calculatedEarlyWithdrawal.interestToPay.toFixed(2) }} UAH</p>
+        <p><strong>Загальна сума до виплати на картку:</strong> <strong style="color: #42b983;">{{ calculatedEarlyWithdrawal.totalPayout.toFixed(2) }} UAH</strong></p>
+      </div>
+      <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
+        <span v-if="activeCard.status === 'expired'">Виведення неможливе: термін дії вашої картки закінчився.</span>
+        <span v-else-if="activeCard.status === 'blocked'">Виведення неможливе: ваша картка заблокована.</span>
+        <span v-else>Виведення неможливе: ваша картка не активна (статус: {{ activeCard.status }}).</span>
+      </div>
+      <form @submit.prevent="handleEarlyWithdrawal">
+        <div v-if="earlyWithdrawalError" class="error-message">{{ earlyWithdrawalError }}</div>
+        <div v-if="earlyWithdrawalSuccessMessage" class="success-message">{{ earlyWithdrawalSuccessMessage }}</div>
+        <button
+            type="submit"
+            class="submit-button confirm-action-btn"
+            :disabled="isProcessingEarlyWithdrawal || (activeCard && activeCard.status !== 'active')">
+          {{ isProcessingEarlyWithdrawal ? 'Обробка...' : 'Підтвердити розірвання та вивести кошти' }}
+        </button>
+      </form>
+    </div>
+  </div>
 </template>
 
 <script>
 import axios from 'axios';
 import BankCard from '../components/BankCard.vue';
+import { useDepositStore } from "../store/depositStore.js";
+import {computed} from "vue";
 
 export default {
   name: 'ProfileView',
@@ -342,8 +466,28 @@ export default {
       payPenaltyError: null,
       payPenaltySuccessMessage: null,
 
+      depositStore: useDepositStore(),
+      showEarlyWithdrawalModal: false,
+      selectedDepositForWithdrawal: null,
+      calculatedEarlyWithdrawal: { initialInterest: 0, penaltyAmount: 0, interestToPay: 0, totalPayout: 0 },
+      earlyWithdrawalError: null,
+      earlyWithdrawalSuccessMessage: null,
+      isProcessingEarlyWithdrawal: false,
+
+      showWithdrawMaturedModal: false,
+      selectedDepositForMaturedWithdrawal: null,
+      maturedWithdrawalError: null,
+      maturedWithdrawalSuccessMessage: null,
+      isProcessingMaturedWithdrawal: false,
     };
   },
+
+  computed: {
+    userDepositsFromStore() {
+      return this.depositStore.userDeposits;
+    }
+  },
+
   async created() {
     await this.fetchUserData();
     if (this.user) {
@@ -351,10 +495,176 @@ export default {
         await this.fetchCardData();
       }
       await this.fetchUserLoans();
+      await this.depositStore.fetchUserDeposits();
     }
     await this.fetchSupportedCurrenciesNBU();
   },
   methods: {
+
+    openWithdrawMaturedModal(deposit) {
+      this.selectedDepositForMaturedWithdrawal = {...deposit};
+      this.maturedWithdrawalError = null;
+      this.depositStore.error = null; // Скидання помилок стору
+      this.maturedWithdrawalSuccessMessage = null;
+      this.depositStore.withdrawalMessage = null; // Скидання повідомлень стору
+      this.showWithdrawMaturedModal = true;
+    },
+    closeWithdrawMaturedModal() {
+      this.showWithdrawMaturedModal = false;
+      this.selectedDepositForMaturedWithdrawal = null;
+      this.maturedWithdrawalError = null;
+      this.maturedWithdrawalSuccessMessage = null;
+      this.depositStore.error = null;
+      this.depositStore.withdrawalMessage = null;
+    },
+    async handleWithdrawMatured() {
+      if (!this.selectedDepositForMaturedWithdrawal) return;
+      this.depositStore.error = null;
+      this.depositStore.withdrawalMessage = null;
+
+      if (!this.activeCard || this.activeCard.status !== 'active') {
+        let cardStatusError = "Виведення неможливе: ваша основна картка не активна.";
+        if (this.activeCard) {
+          if (this.activeCard.status === 'expired') cardStatusError = "Виведення неможливе: термін дії вашої картки закінчився.";
+          else if (this.activeCard.status === 'blocked') cardStatusError = "Виведення неможливе: ваша картка заблокована.";
+          else cardStatusError = `Виведення неможливе: статус вашої картки "${this.activeCard.status}".`;
+        }
+        this.maturedWithdrawalError = cardStatusError;
+        return;
+      }
+
+      this.isProcessingMaturedWithdrawal = true;
+      this.maturedWithdrawalError = null;
+
+      const result = await this.depositStore.withdrawMaturedDeposit(this.selectedDepositForMaturedWithdrawal.id);
+
+      if (result.success) {
+        this.maturedWithdrawalSuccessMessage = result.data.message || "Кошти по депозиту успішно отримані.";
+        // await this.depositStore.fetchUserDeposits(); // Вже викликається всередині дії стору
+        await this.fetchCardData(); // Оновити баланс картки
+        setTimeout(() => {
+          this.closeWithdrawMaturedModal();
+        }, 2500);
+      } else {
+        this.maturedWithdrawalError = result.error;
+      }
+      this.isProcessingMaturedWithdrawal = false;
+    },
+
+    isDepositMatured(deposit) {
+      return deposit && deposit.status === 'active' && deposit.maturity_date && new Date() >= new Date(deposit.maturity_date);
+    },
+
+    getDepositStatusText(status) {
+      const statuses = {
+        waiting_approval: "Очікує схвалення",
+        active: "Активний",
+        rejected: "Відхилено",
+        matured: "Термін завершено",
+        closed_early: "Розірвано достроково",
+        closed_by_term: "Завершено"
+      };
+      return statuses[status] || status;
+    },
+
+    calculateDepositEndDate(approvedAt, termInMonths) {
+      if (!approvedAt || !termInMonths) return 'N/A';
+      const date = new Date(approvedAt);
+      date.setMonth(date.getMonth() + termInMonths);
+      return date.toLocaleDateString('uk-UA');
+    },
+
+    // Допоміжна функція для розрахунку простих відсотків (дублює ту, що на бекенді, для UI)
+    _calculateSimpleInterestForUI(principal, annualRate, startDate, endDate) {
+      if (!startDate || !endDate || new Date(endDate) <= new Date(startDate)) {
+        return 0;
+      }
+      const days = Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (days <= 0) return 0;
+      const interest = principal * (annualRate / 100 / 365) * days;
+      return parseFloat(interest.toFixed(2));
+    },
+
+    openEarlyWithdrawalModal(deposit) {
+      this.selectedDepositForWithdrawal = {...deposit};
+      this.earlyWithdrawalError = null;
+      this.earlyWithdrawalSuccessMessage = null;
+
+      if (deposit.status === 'active' && deposit.approved_at) {
+        const initialInterest = this._calculateSimpleInterestForUI(
+            deposit.amount,
+            deposit.interest_rate,
+            new Date(deposit.approved_at),
+            new Date()
+        );
+        const penaltyPercent = deposit.early_withdrawal_penalty_percent || 50;
+        const penaltyAmount = parseFloat((initialInterest * (penaltyPercent / 100)).toFixed(2));
+        const interestToPay = parseFloat((initialInterest - penaltyAmount).toFixed(2));
+        const totalPayout = parseFloat((deposit.amount + interestToPay).toFixed(2));
+
+        this.calculatedEarlyWithdrawal = {
+          initialInterest,
+          penaltyAmount,
+          interestToPay,
+          totalPayout
+        };
+      } else {
+        this.calculatedEarlyWithdrawal = { initialInterest:0, penaltyAmount:0, interestToPay:0, totalPayout: deposit.amount};
+      }
+      this.showEarlyWithdrawalModal = true;
+    },
+
+    closeEarlyWithdrawalModal() {
+      this.showEarlyWithdrawalModal = false;
+      this.selectedDepositForWithdrawal = null;
+    },
+
+    async handleEarlyWithdrawal() {
+      if (!this.selectedDepositForWithdrawal) return;
+
+      if (!this.activeCard || this.activeCard.status !== 'active') {
+        let cardStatusError = "Виведення неможливе: ваша основна картка не активна.";
+        if (this.activeCard) {
+          if (this.activeCard.status === 'expired') cardStatusError = "Виведення неможливе: термін дії вашої картки закінчився.";
+          else if (this.activeCard.status === 'blocked') cardStatusError = "Виведення неможливе: ваша картка заблокована.";
+          else cardStatusError = `Виведення неможливе: статус вашої картки "${this.activeCard.status}".`;
+        }
+        this.earlyWithdrawalError = cardStatusError;
+        return;
+      }
+
+
+      this.isProcessingEarlyWithdrawal = true;
+      this.earlyWithdrawalError = null;
+      this.earlyWithdrawalSuccessMessage = null;
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          this.earlyWithdrawalError = "Помилка автентифікації.";
+          this.isProcessingEarlyWithdrawal = false;
+          return;
+        }
+        const headers = { Authorization: `Bearer ${token}` };
+        const depositId = this.selectedDepositForWithdrawal.id;
+
+        const response = await axios.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
+
+        this.earlyWithdrawalSuccessMessage = response.data.message || "Депозит успішно розірвано, кошти зараховані.";
+        await this.depositStore.fetchUserDeposits();
+        await this.fetchCardData();
+
+        setTimeout(() => {
+          this.closeEarlyWithdrawalModal();
+        }, 500);
+
+      } catch (error) {
+        console.error("Помилка дострокового розірвання депозиту:", error);
+        this.earlyWithdrawalError = error.response?.data?.error || "Не вдалося розірвати депозит.";
+      } finally {
+        this.isProcessingEarlyWithdrawal = false;
+      }
+    },
 
     calculateMonthlyInterest(outstandingPrincipal, annualInterestRate) {
       if (outstandingPrincipal <= 0 || annualInterestRate < 0) {
@@ -469,6 +779,17 @@ export default {
       this.paymentData.calculatedAmountToSend = null;
     },
     async handleLoanPayment() {
+
+      if (!this.activeCard || this.activeCard.status !== 'active') {
+        let cardStatusError = "Платіж неможливий: ваша основна картка не активна.";
+        if (this.activeCard) {
+          if (this.activeCard.status === 'expired') cardStatusError = "Платіж неможливий: термін дії вашої картки закінчився.";
+          else if (this.activeCard.status === 'blocked') cardStatusError = "Платіж неможливий: ваша картка заблокована.";
+          else cardStatusError = `Платіж неможливий: статус вашої картки "${this.activeCard.status}".`;
+        }
+        this.paymentError = cardStatusError;
+        return;
+      }
 
       if (!this.selectedLoanForPayment || !this.paymentData.calculatedAmountToSend || this.paymentData.calculatedAmountToSend <= 0) {
         this.paymentError = "Сума для платежу не розрахована або некоректна.";
@@ -861,6 +1182,18 @@ export default {
       this.penaltyToPayDetails = null;
     },
     async handlePayPenalty() {
+
+      if (!this.activeCard || this.activeCard.status !== 'active') {
+        let cardStatusError = "Сплата штрафу неможлива: ваша основна картка не активна.";
+        if (this.activeCard) {
+          if (this.activeCard.status === 'expired') cardStatusError = "Сплата штрафу неможлива: термін дії вашої картки закінчився.";
+          else if (this.activeCard.status === 'blocked') cardStatusError = "Сплата штрафу неможлива: ваша картка заблокована.";
+          else cardStatusError = `Сплата штрафу неможлива: статус вашої картки "${this.activeCard.status}".`;
+        }
+        this.payPenaltyError = cardStatusError;
+        return;
+      }
+
       if (!this.penaltyToPayDetails || !this.penaltyToPayDetails.accrued_penalty || this.penaltyToPayDetails.accrued_penalty <= 0) {
         this.payPenaltyError = "Сума штрафу для сплати не визначена або нульова.";
         return;
@@ -1055,6 +1388,80 @@ h2 {
   border: 1px solid rgba(66,185,131,0.3); padding: 10px;
   border-radius: 5px; margin-bottom: 15px; font-size: 14px; text-align: center;
 }
+
+.user-deposits-section {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #252525;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.user-deposits-section h2 {
+  color: #42b983;
+  text-align: center;
+  margin-bottom: 20px;
+}
+.deposits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+.deposit-item {
+  background-color: rgb(55, 55, 55, 0.7);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 15px 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.deposit-item h3 {
+  color: #e0e0e0;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.15em;
+  border-bottom: 1px solid #4a4a4a;
+  padding-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.deposit-status-active .status-badge { background-color: #28a745; color: white; }
+.deposit-status-waiting_approval .status-badge { background-color: #f0ad4e; color: #212529; }
+.deposit-status-closed_early .status-badge, .deposit-status-closed_by_term .status-badge { background-color: #5bc0de; color: white; }
+.deposit-status-rejected .status-badge { background-color: #d9534f; color: white; }
+
+.deposit-details p {
+  margin: 7px 0;
+  font-size: 0.9em;
+  color: #c5c5c5;
+}
+.deposit-details p strong { color: #e8e8e8; margin-right: 5px;}
+
+.withdraw-early-button {
+  margin-top: 15px;
+  background-color: #ffc107;
+  color: #212529;
+  padding: 8px 15px;
+  font-size: 0.95em;
+  align-self: flex-start;
+}
+.withdraw-early-button:hover {
+  background-color: #e0a800;
+}
+.deposit-withdrawal-details {
+  border-bottom: 1px solid #333;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+.text-warning {
+  color: #f0ad4e !important;
+  font-size: 0.85em;
+}
+.d-block { display: block !important; }
+.mt-2 { margin-top: 0.5rem !important; }
 
 .currency-converter-section.compact {
   max-width: 550px;
@@ -1363,10 +1770,21 @@ h2 {
   background-color: #c82333;
 }
 
-.pay-penalty-submit-btn { /* Якщо потрібен окремий стиль для кнопки в модалці штрафу */
-  background-color: #28a745; /* Зелений для підтвердження дії */
+.pay-penalty-submit-btn {
+  background-color: #28a745;
 }
 .pay-penalty-submit-btn:hover {
   background-color: #218838;
+}
+
+.deposit-status-matured-display { /* Стиль для значка "Термін завершено" */
+  background-color: #007bff !important;
+  color: white !important;
+}
+.get-funds-button { /* Стиль для кнопки "Отримати кошти" */
+  background-color: #007bff;
+}
+.get-funds-button:hover {
+  background-color: #0056b3;
 }
 </style>

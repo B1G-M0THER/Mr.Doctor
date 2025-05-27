@@ -197,6 +197,15 @@ export const makeLoanPayment = async (req, res) => {
             });
             if (!userCard) throw { status: 404, message: "Активну картку для списання коштів не знайдено." };
 
+            if (userCard.status === Cards.expired) {
+                throw { status: 403, message: "Платіж неможливий: термін дії вашої картки закінчився." };
+            }
+            if (userCard.status === Cards.blocked) {
+                throw { status: 403, message: "Платіж неможливий: ваша картка заблокована." };
+            }
+            if (userCard.status !== Cards.active) { // Загальна перевірка, якщо не expired і не blocked, але все ще не active
+                throw { status: 403, message: `Платіж неможливий: ваша картка не активна (статус: ${userCard.status}).` };
+            }
 
             const currentInterestForPeriod = calculateMonthlyInterest(loan.outstanding_principal, loan.interest_rate);
             const actualAmountToCloseLoanIfThisIsLastPayment = parseFloat((loan.outstanding_principal + currentInterestForPeriod).toFixed(2));
@@ -287,6 +296,17 @@ export const payLoanPenalty = async (req, res) => {
                 where: { holder_id: userId, status: Cards.active }
             });
             if (!userCard) throw { status: 404, message: "Активну картку для списання коштів не знайдено." };
+
+            if (userCard.status === Cards.expired) {
+                throw { status: 403, message: "Сплата штрафу неможлива: термін дії вашої картки закінчився." };
+            }
+            if (userCard.status === Cards.blocked) {
+                throw { status: 403, message: "Сплата штрафу неможлива: ваша картка заблокована." };
+            }
+            if (userCard.status !== Cards.active) { // Загальна перевірка
+                throw { status: 403, message: `Сплата штрафу неможлива: ваша картка не активна (статус: ${userCard.status}).` };
+            }
+
             if (userCard.balance < penaltyToPay) throw { status: 400, message: `Недостатньо коштів на картці для сплати штрафу. Потрібно: ${penaltyToPay} UAH` };
 
             const newCardBalance = parseFloat((userCard.balance - penaltyToPay).toFixed(2));

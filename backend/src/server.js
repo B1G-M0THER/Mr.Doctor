@@ -8,6 +8,7 @@ import cardRoutes from "./routes/cards.js";
 import adminRoutes from "./routes/admin.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import loanRoutes from "./routes/loanRoutes.js";
+import depositRoutes from "./routes/depositRoutes.js";
 import http from "http";
 import { Server } from "socket.io";
 import initializeSocket from "./socket/socketHandler.js";
@@ -35,6 +36,7 @@ app.use("/api/cards", cardRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/loans", loanRoutes);
+app.use("/api/deposits", depositRoutes);
 
 app.get("/", (req, res) => {
     res.send("Server is running!");

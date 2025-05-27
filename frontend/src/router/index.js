@@ -12,6 +12,7 @@ import {adminGuard, authGuard} from "../middleware/auth.js"
 import AdminChatView from '../views/AdminChatView.vue';
 import AdminCardRenewalView from "../views/AdminCardRenewalView.vue";
 import AdminLoanApplicationsView from '../views/AdminLoanApplicationsView.vue';
+import AdminDepositApprovalView from '../views/AdminDepositApprovalView.vue';
 
 const routes = [
   { path: '/', name: 'Home', component: HomeView },
@@ -25,6 +26,7 @@ const routes = [
   { path: '/admin/chat', name: 'AdminChat', component: AdminChatView, beforeEnter: adminGuard },
   { path: '/admin/card-renewal-requests', name: 'AdminCardRenewalRequests', component: AdminCardRenewalView, beforeEnter: adminGuard},
   { path: '/admin/loan-applications', name: 'AdminLoanApplicationsView', component: AdminLoanApplicationsView, beforeEnter: adminGuard },
+  { path: '/admin/deposit-applications', name: 'AdminDepositApprovalView', component: AdminDepositApprovalView, beforeEnter: adminGuard},
 ];
 
 const router = createRouter({
