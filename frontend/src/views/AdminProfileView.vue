@@ -7,6 +7,7 @@
       <router-link to="/admin/card-renewal-requests" class="action-link">Запити на поновлення карток</router-link>
       <router-link to="/admin/loan-applications" class="action-link">Заявки на Кредит</router-link>
       <router-link to="/admin/chat" class="action-link">Підтримка (Чати)</router-link>
+      <router-link to="/admin/deposit-applications" class="action-link">Заявки на Депозит</router-link>
     </div>
   </div>
 </template>

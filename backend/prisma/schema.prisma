@@ -78,6 +78,17 @@ model Deposits {
   term          Int
   status        String @default("active")
   created_at    DateTime @default(now())
+
+  approved_at   DateTime?
+  maturity_date DateTime?
+  closed_at     DateTime?
+
+  calculated_accrued_interest Float?
+  calculated_total_payout   Float?
+
+  early_withdrawal_requested_at DateTime?
+  early_withdrawal_penalty_percent Float? @default(50.0)
+
   Users         Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
