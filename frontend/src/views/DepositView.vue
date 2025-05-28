@@ -405,4 +405,26 @@ h1 {
   font-style: italic;
   color: #aaa;
 }
+
+@media (max-width: 768px) {
+  .deposit-page{ /* Загальний клас сторінки */
+    padding: 20px 15px;
+  }
+  h1 {
+    font-size: 26px;
+  }
+  .description {
+    font-size: 0.95em;
+  }
+  .card-style { /* Стиль обгортки для калькулятора/форми */
+    padding: 15px;
+  }
+  .form-group input[type="number"], .form-group .static-rate {
+    font-size: 15px;
+  }
+  .calculate-button, .submit-button {
+    font-size: 15px;
+    padding: 10px 20px;
+  }
+}
 </style>

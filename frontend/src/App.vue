@@ -45,6 +45,15 @@ export default {
 
 <style>
 
+@media (max-width: 768px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+  html {
+    font-size: 90%;
+  }
+}
+
 html,
 body {
   margin: 0;

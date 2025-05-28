@@ -431,4 +431,59 @@ onMounted(() => {
   scrollbar-width: thin;
   scrollbar-color: #42b983 transparent;
 }
+
+@media (max-width: 768px) {
+  .admin-chat-view {
+    flex-direction: column; /* Панелі одна під одною */
+    height: auto; /* Висота підлаштовується під контент */
+    /* Або можна задати calc(100vh - висота_хедера_мобільного) якщо хедер фіксований */
+  }
+  .user-list-panel {
+    width: 100%; /* На всю ширину */
+    border-right: none;
+    border-bottom: 1px solid #444; /* Розділювач знизу */
+    max-height: 250px; /* Обмежити висоту списку користувачів, зробити його прокручуваним */
+    flex-shrink: 0; /* Щоб не стискався */
+  }
+  .user-list-panel h2 {
+    font-size: 1em;
+    padding: 12px;
+  }
+  .user-list-panel input {
+    margin: 8px;
+    padding: 7px 10px;
+  }
+  .user-list-panel li {
+    padding: 10px 12px;
+    font-size: 0.9em;
+  }
+
+  .chat-panel {
+    height: calc(100vh - 60px - 250px - 20px); /* Приблизно: висота екрану - хедер - список_юзерів - відступи */
+    /* Або просто flex-grow: 1; якщо .admin-chat-view має фіксовану висоту */
+  }
+  .chat-header {
+    padding: 12px;
+    font-size: 0.95em;
+  }
+  .chat-messages {
+    padding: 10px;
+    gap: 10px;
+  }
+  .message {
+    padding: 7px 10px;
+    font-size: 0.9em;
+  }
+  .chat-input {
+    padding: 10px;
+  }
+  .chat-input input {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .chat-input button {
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+}
 </style>
