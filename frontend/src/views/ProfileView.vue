@@ -544,7 +544,7 @@ export default {
         await this.fetchCardData(); // Оновити баланс картки
         setTimeout(() => {
           this.closeWithdrawMaturedModal();
-        }, 2500);
+        }, 500);
       } else {
         this.maturedWithdrawalError = result.error;
       }
@@ -1016,7 +1016,7 @@ export default {
         setTimeout(() => {
           this.closeTransferModal();
           this.transferSuccessMessage = null;
-        }, 3000);
+        }, 500);
       } catch (error) {
         this.transferError = error.response?.data?.error || "Помилка під час переказу.";
       } finally {
@@ -1243,7 +1243,7 @@ export default {
 
 .page {
   text-align: center;
-  padding: 20px;
+  padding: 20px 15px;
   max-width: 800px;
   margin: 0 auto;
 }
@@ -1330,11 +1330,11 @@ h2 {
   align-items: center; z-index: 1050; padding: 15px;
 }
 .modal-content {
-  background-color: #1e1e1e; color: #ffffff; width: 100%; max-width: 450px;
+  background-color: #1e1e1e; color: #ffffff; width: 100%; max-width: 400px;
   padding: 25px 30px; border-radius: 8px; box-shadow: 0 8px 25px rgba(0,0,0,0.6);
   position: relative; text-align: left;
 }
-.modal-content h3 { color: #42b983; margin-bottom: 20px; text-align: center; font-size: 20px;}
+.modal-content h3 { color: #42b983; max-width: 400px; margin-bottom: 20px; text-align: center; font-size: 20px;}
 .close-icon {
   position: absolute; top: 10px; right: 15px; font-size: 28px; color: #aaa;
   cursor: pointer; transition: color 0.3s ease; line-height: 1;
@@ -1557,6 +1557,75 @@ h2 {
   margin-top: 10px;
 }
 
+@media (max-width: 768px) {
+  .page {
+    max-width: 100%; /* Дозволити займати всю ширину */
+    padding: 15px 10px;
+  }
+  h1 {
+    font-size: 24px; /* Зменшити заголовок */
+  }
+  h2 {
+    font-size: 20px;
+  }
+  .user-info p, .deposit-details p, .loan-details p {
+    font-size: 14px; /* Зменшити текст для кращої читабельності */
+  }
+
+  .loans-grid, .deposits-grid {
+    grid-template-columns: 1fr; /* Один елемент в рядку */
+    gap: 15px;
+  }
+  .loan-item, .deposit-item {
+    padding: 12px 15px;
+  }
+  .action-button, .submit-button { /* Зробити кнопки більш адаптивними */
+    font-size: 14px;
+    padding: 10px 15px;
+    min-width: 150px; /* Можна зменшити або прибрати */
+  }
+  .card-actions {
+    flex-direction: column; /* Кнопки картки одна під одною */
+    align-items: stretch; /* Розтягнути кнопки */
+  }
+  .card-actions .action-button {
+    width: 100%;
+    max-width: 300px; /* Обмеження максимальної ширини */
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+
+  .modal-content {
+    max-width: 400px; /* Модалки не ширші за 90% екрану */
+    padding: 20px;
+  }
+  .modal-content h3 {
+    max-width: 400px;
+    font-size: 18px;
+  }
+  .form-group input[type="text"],
+  .form-group input[type="number"],
+  .form-group input[type="password"],
+  .form-group select {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  /* Адаптація конвертера валют (якщо ще не зроблено повністю) */
+  .currency-converter-section.compact .form-row.compact-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .currency-converter-section.compact .form-group.compact-group {
+    flex-basis: auto;
+    width: 100%;
+  }
+  .currency-converter-section.compact .form-group.compact-group.button-group {
+    margin-top: 10px;
+  }
+}
+
 @media (max-width: 480px) {
   .converter-form.compact .form-row.compact-row {
     flex-direction: column;
@@ -1572,6 +1641,14 @@ h2 {
   .converter-form.compact .convert-button.compact-button {
     width: 100%;
   }
+  .modal-content {
+    max-width: 280px; /* Модалки не ширші за 90% екрану */
+    padding: 20px;
+  }
+  .modal-content h3 {
+    max-width: 280px;
+    font-size: 18px;
+  }
 }
 
 .user-loans-section {
@@ -1586,11 +1663,12 @@ h2 {
   text-align: center;
   margin-bottom: 20px;
 }
-.loans-grid {
+.loans-grid .deposits-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
 }
+
 .loan-item {
   background-color: rgb(55, 55, 55, 0.7);
   border: 1px solid #444;

@@ -188,7 +188,13 @@ h1 {
   color: #ccc; /* Сірий для повідомлення про відсутність запитів */
 }
 
+.requests-list { /* Обгортка для таблиці */
+  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
+  -webkit-overflow-scrolling: touch; /* Плавна прокрутка на iOS */
+}
+
 .requests-list table {
+  min-width: 700px;
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
@@ -231,7 +237,6 @@ h1 {
 }
 
 .action-button.confirm {
-  margin-bottom: 10px;
   background-color: #28a745; /* Зелений для підтвердження */
 }
 .action-button.confirm:hover {
@@ -240,6 +245,7 @@ h1 {
 
 .action-button.reject {
   background-color: #dc3545; /* Червоний для відхилення */
+  margin-top: 0;
 }
 .action-button.reject:hover {
   background-color: #c82333;
@@ -253,5 +259,37 @@ h1 {
 .status-waiting {
   color: #f0ad4e; /* Помаранчевий для "waiting" */
   font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 15px 10px;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .requests-list th,
+  .requests-list td {
+    font-size: 0.85em; /* Трохи менший шрифт в таблиці */
+    padding: 8px 6px;
+  }
+  .action-button {
+    padding: 6px 8px;
+    font-size: 0.8em;
+    min-width: auto; /* Прибираємо мін ширину, щоб краще вміщались */
+  }
+  .actions-cell { /* Якщо кнопки в стовпчик */
+    min-width: 120px; /* Мінімальна ширина для комірки з кнопками */
+  }
+}
+
+@media (max-width: 480px) {
+  .requests-list table {
+    min-width: 600px; /* Можна ще зменшити, якщо деякі колонки не критичні */
+  }
+  .requests-list th,
+  .requests-list td {
+    white-space: nowrap; /* Щоб текст не переносився і не розтягував рядки по висоті */
+  }
 }
 </style>

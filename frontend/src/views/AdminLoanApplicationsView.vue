@@ -227,11 +227,17 @@ h1 {
   color: #ccc;
 }
 
+.requests-list { /* Обгортка для таблиці */
+  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
+  -webkit-overflow-scrolling: touch; /* Плавна прокрутка на iOS */
+}
+
 .requests-list table {
+  min-width: 700px;
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .requests-list th,
@@ -404,5 +410,37 @@ h1 {
 }
 .modal-actions .cancel-action-btn:hover {
   background-color: #c82333;
+}
+
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 15px 10px;
+  }
+  h1 {
+    font-size: 22px;
+  }
+  .requests-list th,
+  .requests-list td {
+    font-size: 0.85em;
+    padding: 8px 6px;
+  }
+  .action-button {
+    padding: 6px 8px;
+    font-size: 0.8em;
+    min-width: auto;
+  }
+  .actions-cell {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .requests-list table {
+    min-width: 600px;
+  }
+  .requests-list th,
+  .requests-list td {
+    white-space: nowrap;
+  }
 }
 </style>

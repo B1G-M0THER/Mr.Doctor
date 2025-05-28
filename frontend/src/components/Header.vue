@@ -1,24 +1,33 @@
 <template>
   <header class="navbar">
     <div class="logo">
-      <img src="../assets/logo.png" alt="Vue Logo" />
+      <router-link to="/"><img src="../assets/logo.png" alt="Mr.Doctor Bank Logo" /></router-link>
     </div>
-    <div v-if="role !== 'ADMIN' && isLoggedIn" class="profile-icon balance-icon-container" @click="toggleTopUpModal">
-      <div class="profile-icon balance-icon">
-        <img src="../assets/balance.png" alt="Поповнити баланс" class="profile-img light" />
-        <img src="../assets/balance_green.png" alt="Поповнити баланс" class="profile-img dark" />
-      </div>
-    </div>
-    <nav class="nav-links">
+
+    <button class="hamburger-menu" @click="toggleMobileMenu" aria-label="Toggle navigation" :class="{ 'open': isMobileMenuOpen }">
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
+
+    <nav class="nav-links desktop-nav">
       <ul>
-        <li><router-link to="/">Головна</router-link></li>
-        <li><router-link to="/deposit">Депозити</router-link></li>
-        <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card">Відкрити карту</router-link></li>
-        <li><router-link to="/credit">Кредити</router-link></li>
-        <li><router-link to="/about">Про нас</router-link></li>
+        <li><router-link to="/" @click="closeMobileMenuIfNeeded">Головна</router-link></li>
+        <li><router-link to="/deposit" @click="closeMobileMenuIfNeeded">Депозити</router-link></li>
+        <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="closeMobileMenuIfNeeded">Відкрити карту</router-link></li>
+        <li><router-link to="/credit" @click="closeMobileMenuIfNeeded">Кредити</router-link></li>
+        <li><router-link to="/about" @click="closeMobileMenuIfNeeded">Про нас</router-link></li>
       </ul>
     </nav>
+
     <div class="auth-section">
+      <div v-if="role !== 'ADMIN' && isLoggedIn" class="profile-icon balance-icon-container desktop-specific-icon" @click="toggleTopUpModal">
+        <div class="profile-icon balance-icon">
+          <img src="../assets/balance.png" alt="Поповнити баланс" class="profile-img light" />
+          <img src="../assets/balance_green.png" alt="Поповнити баланс" class="profile-img dark" />
+        </div>
+      </div>
+
       <div v-if="!isLoggedIn">
         <button class="auth-button" @click="showRegisterModal = true">
           Реєстрація/Логін
@@ -26,7 +35,7 @@
       </div>
 
       <div v-if="isLoggedIn" class="profile-container">
-        <div v-if="role !== 'ADMIN'" class="chat-icon-container" @click="toggleChatWindow">
+        <div v-if="role !== 'ADMIN'" class="chat-icon-container desktop-specific-icon" @click="toggleChatWindow">
           <div class="profile-icon chat-icon">
             <img src="../assets/support.png" alt="Support Chat" class="profile-img light" />
             <img src="../assets/support_green.png" alt="Support Chat" class="profile-img dark" />
@@ -34,7 +43,7 @@
           <span v-if="chatStore.hasUnreadMessages" class="unread-indicator"></span>
         </div>
 
-        <router-link :to="role === 'ADMIN' ? '/admin' : '/profile'" class="profile-icon">
+        <router-link :to="role === 'ADMIN' ? '/admin' : '/profile'" class="profile-icon desktop-icon" @click="closeMobileMenuIfNeeded">
           <img
               v-if="role !== 'ADMIN'"
               src="../assets/profile.png"
@@ -61,60 +70,59 @@
           />
         </router-link>
 
-        <button class="logout-button" @click="logout">Вийти</button>
+        <button class="logout-button desktop-icon" @click="logoutAndCloseMenu">Вийти</button>
       </div>
     </div>
+
+    <nav class="mobile-nav" :class="{ 'open': isMobileMenuOpen }">
+      <ul>
+        <li><router-link to="/" @click="toggleMobileMenu">Головна</router-link></li>
+        <li><router-link to="/deposit" @click="toggleMobileMenu">Депозити</router-link></li>
+        <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="toggleMobileMenu">Відкрити карту</router-link></li>
+        <li><router-link to="/credit" @click="toggleMobileMenu">Кредити</router-link></li>
+        <li><router-link to="/about" @click="toggleMobileMenu">Про нас</router-link></li>
+
+        <li v-if="isLoggedIn" class="nav-separator"></li>
+
+        <li v-if="isLoggedIn && role !== 'ADMIN'" class="mobile-nav-action" @click="handleMobileTopUp">
+          <img src="../assets/balance.png" alt="Поповнити баланс"/> Поповнити баланс
+        </li>
+        <li v-if="isLoggedIn && role !== 'ADMIN'" class="mobile-nav-action" @click="handleMobileChat">
+          <img src="../assets/support.png" alt="Підтримка"/> Підтримка
+          <span v-if="chatStore.hasUnreadMessages" class="unread-indicator mobile-unread"></span>
+        </li>
+        <li v-if="isLoggedIn" class="profile-logout-stack">
+          <router-link :to="role === 'ADMIN' ? '/admin' : '/profile'" class="profile-icon-link" @click="toggleMobileMenu">
+            <img v-if="role !== 'ADMIN'" src="../assets/profile.png" alt="Profile"/>
+            <img v-if="role === 'ADMIN'" src="../assets/admin.png" alt="Admin Profile"/>
+            <span>{{ role === 'ADMIN' ? 'Адмін Панель' : 'Мій Профіль' }}</span>
+            <button class="logout-button-stacked" @click="logout">Вийти</button>
+          </router-link>
+        </li>
+      </ul>
+    </nav>
 
     <div v-if="showRegisterModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal-content">
         <div class="close-icon" @click="closeModal">×</div>
-
         <div class="tabs">
-          <button :class="{ active: isRegistrationMode }" @click="switchMode(true)">
-            Реєстрація
-          </button>
-          <button :class="{ active: !isRegistrationMode }" @click="switchMode(false)">
-            Логін
-          </button>
+          <button :class="{ active: isRegistrationMode }" @click="switchMode(true)">Реєстрація</button>
+          <button :class="{ active: !isRegistrationMode }" @click="switchMode(false)">Логін</button>
         </div>
-
         <div v-if="isRegistrationMode">
           <form @submit.prevent="register">
-            <div class="form-group">
-              <label for="name">Ім'я:</label>
-              <input type="text" v-model="name" autocomplete="name" placeholder="Введіть ваше ім'я" required />
-            </div>
-            <div class="form-group">
-              <label for="email">Електронна пошта:</label>
-              <input type="email" v-model="email" autocomplete="email" placeholder="Введіть ваш email" required />
-            </div>
-            <div class="form-group">
-              <label for="phone">Телефон:</label>
-              <vue-tel-input v-model="phone" :input-options="{ placeholder: 'Введіть номер телефону'}" />
-            </div>
-            <div class="form-group">
-              <label for="password">Пароль:</label>
-              <input type="password" v-model="password" placeholder="Введіть ваш пароль" required />
-            </div>
-            <div class="form-group">
-              <button type="submit" class="submit-button">Зареєструватися</button>
-            </div>
+            <div class="form-group"><label for="name">Ім'я:</label><input type="text" v-model="name" autocomplete="name" placeholder="Введіть ваше ім'я" required /></div>
+            <div class="form-group"><label for="email">Електронна пошта:</label><input type="email" v-model="email" autocomplete="email" placeholder="Введіть ваш email" required /></div>
+            <div class="form-group"><label for="phone">Телефон:</label><vue-tel-input v-model="phone" :input-options="{ placeholder: 'Введіть номер телефону'}" /></div>
+            <div class="form-group"><label for="password">Пароль:</label><input type="password" v-model="password" placeholder="Введіть ваш пароль" required /></div>
+            <div class="form-group"><button type="submit" class="submit-button">Зареєструватися</button></div>
           </form>
         </div>
-
         <div v-else>
           <form @submit.prevent="login">
-            <div class="form-group">
-              <label for="email">Електронна пошта:</label>
-              <input type="email" v-model="email" autocomplete="email" placeholder="Введіть ваш email" required />
-            </div>
-            <div class="form-group">
-              <label for="password">Пароль:</label>
-              <input type="password" v-model="password" placeholder="Введіть ваш пароль" required />
-            </div>
-            <div class="form-group">
-              <button type="submit" class="submit-button">Увійти</button>
-            </div>
+            <div class="form-group"><label for="email">Електронна пошта:</label><input type="email" v-model="email" autocomplete="email" placeholder="Введіть ваш email" required /></div>
+            <div class="form-group"><label for="password">Пароль:</label><input type="password" v-model="password" placeholder="Введіть ваш пароль" required /></div>
+            <div class="form-group"><button type="submit" class="submit-button">Увійти</button></div>
           </form>
         </div>
       </div>
@@ -127,15 +135,7 @@
         <form @submit.prevent="submitTopUp">
           <div class="form-group">
             <label for="topup-amount">Введіть суму (UAH):</label>
-            <input
-                type="number"
-                id="topup-amount"
-                v-model="topUpAmount"
-                placeholder="Наприклад, 500"
-                step="0.01"
-                min="1"
-                required
-            />
+            <input type="number" id="topup-amount" v-model="topUpAmount" placeholder="Наприклад, 500" step="0.01" min="1" required />
           </div>
           <div class="form-group">
             <button type="submit" class="submit-button">Поповнити</button>
@@ -149,7 +149,6 @@
     </div>
 
     <ChatWindow v-if="isLoggedIn && role !== 'ADMIN' && chatStore.isChatOpen" />
-
   </header>
 </template>
 
@@ -177,6 +176,7 @@ export default {
     const name = ref("");
     const phone = ref("");
     const password = ref("");
+    const userCard = ref(null);
 
     const isLoggedIn = ref(!!localStorage.getItem("token"));
     const role = ref(localStorage.getItem("role"));
@@ -187,6 +187,38 @@ export default {
     const successMessage = ref('');
     let successTimeout = null;
 
+    const isMobileMenuOpen = ref(false);
+
+    const toggleMobileMenu = () => {
+      isMobileMenuOpen.value = !isMobileMenuOpen.value;
+    };
+
+    const closeMobileMenuIfNeeded = () => {
+      if (isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false;
+      }
+    };
+
+    const handleMobileTopUp = () => {
+      toggleTopUpModal();
+      closeMobileMenuIfNeeded();
+    };
+
+    const handleMobileChat = () => {
+      toggleChatWindow(); // Ваша існуюча функція
+      closeMobileMenuIfNeeded();
+    };
+
+    const logoutAndCloseMenu = () => {
+      logout();
+      closeMobileMenuIfNeeded();
+    };
+    const updateAuthStatus = () => {
+      isLoggedIn.value = !!localStorage.getItem("token");
+      role.value = localStorage.getItem("role");
+      userId.value = localStorage.getItem("userId");
+    };
+
     const toggleTopUpModal = () => {
       showTopUpModal.value = !showTopUpModal.value;
       topUpAmount.value = '';
@@ -194,6 +226,7 @@ export default {
 
     const submitTopUp = async () => {
       const amount = parseFloat(topUpAmount.value);
+
       if (isNaN(amount) || amount <= 0) {
         alert('Будь ласка, введіть коректну суму для поповнення.');
         return;
@@ -299,9 +332,12 @@ export default {
         isLoggedIn.value = true;
         role.value = response.data.role;
 
+        updateAuthStatus();
         chatStore.connectSocket();
         chatStore.setupListeners();
         closeModal();
+        closeMobileMenuIfNeeded();
+
       } catch (error) {
         alert("Помилка входу: " + (error.response?.data?.error || error.message));
       }
@@ -318,6 +354,7 @@ export default {
       role.value = "";
       userId.value = null;
 
+      updateAuthStatus();
       router.push('/');
     };
 
@@ -326,6 +363,7 @@ export default {
     };
 
     onMounted(() => {
+      updateAuthStatus();
       if (isLoggedIn.value) {
         chatStore.connectSocket();
         chatStore.setupListeners();
@@ -355,6 +393,12 @@ export default {
       submitTopUp,
       showTopUpSuccess,
       successMessage,
+      isMobileMenuOpen,
+      toggleMobileMenu,
+      closeMobileMenuIfNeeded,
+      logoutAndCloseMenu,
+      handleMobileTopUp,
+      handleMobileChat,
     };
   },
 };
@@ -417,8 +461,8 @@ export default {
 .profile-icon {
   position: relative;
   display: inline-block;
-  width: 40px;
-  height: 40px;
+  width: 45px;
+  height: 45px;
   cursor: pointer;
 }
 
@@ -472,8 +516,14 @@ export default {
 }
 
 .logo img {
-  height: 84px;
+  height: 50px;
   vertical-align: middle;
+  margin-right: 10px;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
 }
 
 .nav-links {
@@ -521,8 +571,16 @@ export default {
   width: 100%;
 }
 
+.user-actions-group { /* Обгортка для іконок балансу/чату та блоку профілю/виходу */
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .auth-section {
-  margin-left: 40px;
+  display: flex; /* Дозволяє .user-actions-group вирівнятися по центру вертикально */
+  align-items: center;
+  gap: 10px; /* Якщо будуть інші елементи поруч з .user-actions-group */
 }
 
 .auth-button {
@@ -771,4 +829,173 @@ export default {
   }
 }
 
+.desktop-specific-icon {
+}
+
+.profile-logout-stack { /* Нова обгортка для іконки профілю та кнопки "Вийти" */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.hamburger-menu {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 5px;
+  z-index: 1100;
+}
+
+.hamburger-bar {
+  display: block;
+  width: 22px;
+  height: 3px;
+  margin: 4px auto;
+  background-color: white;
+  transition: all 0.3s ease-in-out;
+}
+
+.hamburger-menu.open .hamburger-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.hamburger-menu.open .hamburger-bar:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-menu.open .hamburger-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.mobile-nav {
+  display: none;
+  position: absolute;
+  top: 60px; /* Висота вашого хедера */
+  left: 0;
+  right: 0;
+  background-color: #1c1c1e;
+  z-index: 1000;
+  border-top: 1px solid #2a2f33;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+}
+.mobile-nav.open {
+  display: block;
+}
+.mobile-nav ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+.mobile-nav ul li a, .mobile-nav ul li.mobile-nav-action {
+  display: block; padding: 15px 20px; color: white; text-decoration: none;
+  border-bottom: 1px solid #2a2f33; font-size: 16px; transition: background-color 0.2s ease;
+}
+.mobile-nav ul li a:hover, .mobile-nav ul li.mobile-nav-action:hover { background-color: #2a2f33; color: #42b983; }
+
+/* Стилі для додаткових дій в мобільному меню (якщо вони там будуть) */
+.mobile-nav ul li.mobile-nav-action { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.mobile-nav ul li.mobile-nav-action img { width: 20px; height: 20px; filter: invert(1); }
+.mobile-nav ul li.mobile-nav-action:hover img {
+  filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%);
+}
+.mobile-nav ul li.nav-separator { height: 1px; background-color: #2a2f33; margin: 5px 0; padding: 0;}
+.mobile-nav ul li a.profile-link {display: flex; align-items: center; gap: 10px;} /* Для посилання на профіль в мобільному меню, якщо воно там буде */
+.mobile-nav ul li a.profile-link img { width: 20px; height: 20px; filter: invert(1); }
+.mobile-nav ul li a.profile-link:hover img {
+  filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%);
+}
+
+.unread-indicator.mobile-unread {
+  position: static; /* Скидаємо абсолютне позиціонування */
+  display: inline-block; /* Для розміщення поруч з текстом */
+  margin-left: 5px; /* Невеликий відступ */
+}
+
+/* Адаптація для планшетів і менших екранів */
+@media (max-width: 992px) { /* Точка перелому для показу гамбургера */
+  .nav-links.desktop-nav {
+    display: none; /* Ховаємо десктопну навігацію */
+  }
+  .hamburger-menu {
+    display: block; /* Показуємо гамбургер */
+  }
+  .desktop-specific-icon { /* Ховаємо десктоп-специфічні іконки типу "баланс", "чат" */
+    display: none;
+  }
+  .profile-logout-stack {
+    display: none;
+  }
+  /* Ховаємо оригінальну кнопку "Вийти", що була поруч з іконкою профілю */
+  .profile-container .logout-button .profile-icon-link .profile-icon{
+    display: none !important;
+  }
+  .logout-button-stacked { /* Показуємо кнопку "Вийти" під іконкою профілю */
+    display: block;
+  }
+  .auth-section {
+    margin-left: auto; /* Притискає блок профілю/виходу вправо */
+  }
+}
+
+
+@media (max-width: 768px) {
+
+  .auth-section .balance-icon-container.desktop-specific-icon, /* Явно ховаємо, якщо ще не приховані */
+  .auth-section .chat-icon-container.desktop-specific-icon {
+    display: none;
+  }
+  .profile-icon { /* Зменшуємо іконки профілю/чату/балансу */
+    width: 30px;
+    height: 30px;
+  }
+  .profile-logout-stack {
+    display: none;
+  }
+  .auth-button { /* Кнопка Реєстрація/Логін */
+    font-size: 13px;
+    padding: 7px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: 90%; /* Або calc(100% - 30px) */
+    max-width: none; /* Прибираємо фіксований max-width */
+    padding: 20px 15px;
+  }
+  .modal-content h3, .tabs button {
+    font-size: 16px;
+  }
+  .form-group input, :deep(.vue-tel-input .vti__input) {
+    font-size: 15px;
+    padding: 10px;
+  }
+  .submit-button {
+    font-size: 15px;
+    padding: 10px;
+  }
+
+  .navbar {
+    padding: 5px 10px; /* Менші відступи на дуже малих екранах */
+    height: 50px;
+  }
+  .mobile-nav {
+    top: 50px; /* Відповідно до нової висоти хедера */
+  }
+  .logo img {
+    height: 50px;
+    margin-right: 2px; /* Менший відступ від гамбургера */
+  }
+  .hamburger-menu {
+    padding: 3px; /* Ще компактніше */
+  }
+  .profile-icon-link { /* Менша іконка профілю */
+    width: 28px;
+    height: 28px;
+  }
+  .profile-logout-stack {
+    display: none;
+  }
+  .auth-button { /* Кнопка "Реєстрація/Логін" */
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
 </style>

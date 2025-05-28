@@ -286,4 +286,9 @@ onMounted(() => {
   scrollbar-width: thin;
   scrollbar-color: #42b983 #1e1e1e;
 }
+@media (max-width: 480px) {
+  .chat-window{
+    max-width: 370px;
+  }
+}
 </style>
