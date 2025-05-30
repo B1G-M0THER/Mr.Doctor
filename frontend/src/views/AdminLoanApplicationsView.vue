@@ -278,7 +278,7 @@ h1 {
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  font-size: 0.9em;
+  font-size: 11px;
   width: 100%;
   text-align: center;
 }

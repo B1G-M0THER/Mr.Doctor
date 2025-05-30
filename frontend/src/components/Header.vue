@@ -16,7 +16,6 @@
         <li><router-link to="/deposit" @click="closeMobileMenuIfNeeded">Депозити</router-link></li>
         <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="closeMobileMenuIfNeeded">Відкрити карту</router-link></li>
         <li><router-link to="/credit" @click="closeMobileMenuIfNeeded">Кредити</router-link></li>
-        <li><router-link to="/about" @click="closeMobileMenuIfNeeded">Про нас</router-link></li>
       </ul>
     </nav>
 
@@ -80,7 +79,6 @@
         <li><router-link to="/deposit" @click="toggleMobileMenu">Депозити</router-link></li>
         <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="toggleMobileMenu">Відкрити карту</router-link></li>
         <li><router-link to="/credit" @click="toggleMobileMenu">Кредити</router-link></li>
-        <li><router-link to="/about" @click="toggleMobileMenu">Про нас</router-link></li>
 
         <li v-if="isLoggedIn" class="nav-separator"></li>
 
