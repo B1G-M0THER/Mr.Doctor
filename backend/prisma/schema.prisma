@@ -13,7 +13,6 @@ model ChatMessage {
   receiverId  Int
   content     String
   createdAt   DateTime @default(now())
-  isRead      Boolean  @default(false)
 
   Sender      Users @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
   Receiver    Users @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)

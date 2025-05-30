@@ -4,7 +4,6 @@ import HomeView from '../views/HomeView.vue';
 import DepositView from '../views/DepositView.vue';
 import OpenCardView from '../views/OpenCardView.vue';
 import CreditView from '../views/CreditView.vue';
-import AboutView from '../views/AboutView.vue';
 import ProfileView from '../views/ProfileView.vue';
 import AdminProfileView from '../views/AdminProfileView.vue';
 import AdminCardApproval from '../views/AdminCardApproval.vue';
@@ -19,7 +18,6 @@ const routes = [
   { path: '/deposit', name: 'Deposit', component: DepositView },
   { path: '/open-card', name: 'OpenCard', component: OpenCardView, beforeEnter: authGuard},
   { path: '/credit', name: 'Credit', component: CreditView},
-  { path: '/about', name: 'About', component: AboutView },
   { path: '/profile', name: 'Profile', component: ProfileView, beforeEnter: authGuard},
   { path: '/admin', name: 'AdminProfile', component: AdminProfileView, beforeEnter: adminGuard },
   { path: '/admin/cards', name: 'AdminCardApproval', component: AdminCardApproval, beforeEnter: adminGuard },
