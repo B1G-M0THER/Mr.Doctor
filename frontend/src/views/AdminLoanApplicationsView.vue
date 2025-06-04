@@ -70,6 +70,7 @@
 import axios from 'axios';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import {useUiStore} from "../store/uiStore.js";
 
 export default {
   name: 'AdminLoanApplicationsView',
@@ -82,6 +83,7 @@ export default {
     const selectedLoan = ref(null);
     const decisionErrorInModal = ref(null);
     const isLoadingDecision = ref(false);
+    const uiStore = useUiStore();
 
     const fetchPendingLoans = async () => {
       isLoading.value = true;
@@ -134,7 +136,10 @@ export default {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          alert("Сесія закінчилася. Будь ласка, увійдіть знову.");
+          uiStore.addNotification({
+            message: "Сесія закінчилася. Будь ласка, увійдіть знову.",
+            type: 'error'
+          });
           await router.push('/');
           if (currentProcessingLoan) currentProcessingLoan.isProcessing = false;
           isLoadingDecision.value = false;
@@ -144,7 +149,10 @@ export default {
         const payload = { decision: decisionAction };
 
         const response = await axios.post(`/api/admin/loans/decide/${loanId}`, payload, { headers });
-        alert(response.data.message || `Рішення '${decisionAction}' по заявці #${loanId} прийнято.`);
+        uiStore.addNotification({
+          message: response.data.message || `Рішення '<span class="math-inline">\{decisionAction\}' по заявці \#</span>{loanId} прийнято.`,
+          type: 'success'
+        });
         pendingLoans.value = pendingLoans.value.filter(l => l.id !== loanId);
 
         if (showApproveModal.value && selectedLoan.value && selectedLoan.value.id === loanId) {
@@ -158,7 +166,10 @@ export default {
         if (showApproveModal.value && decisionAction === 'approve' && selectedLoan.value && selectedLoan.value.id === loanId) {
           decisionErrorInModal.value = errorMessage;
         } else {
-          alert(errorMessage);
+          uiStore.addNotification({
+            message: errorMessage,
+            type: 'error'
+          });
         }
         if (err.response?.status === 401 || err.response?.status === 403) {
           localStorage.removeItem('token');

@@ -14,16 +14,19 @@
 
       <router-view />
     </div>
+  <NotificationContainer />
   </div>
 </template>
 
 <script>
 import Header from "./components/Header.vue";
+import NotificationContainer from "./components/NotificationContainer.vue";
 
 export default {
   name: "App",
   components: {
     Header,
+    NotificationContainer,
   },
   methods: {
     generateFireflyStyle() {
