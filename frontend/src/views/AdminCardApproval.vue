@@ -55,9 +55,10 @@
 
 <script>
 import axios from "axios";
-
+import {useUiStore} from "../store/uiStore.js";
 export default {
   name: "AdminCardApproval", // Змінено ім'я для ясності, якщо потрібно
+
   data() {
     return {
       cardsToApprove: [], // Перейменовано для ясності
@@ -100,6 +101,7 @@ export default {
       }
     },
     async processCardAction(card_id, actionType) {
+      const uiStore = useUiStore();
       const card = this.cardsToApprove.find(c => c.id === card_id);
       if (card) {
         card.isProcessing = true;
@@ -109,7 +111,10 @@ export default {
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          alert("Сесія закінчилася. Будь ласка, увійдіть знову.");
+          uiStore.addNotification({
+            message: "Сесія закінчилася. Будь ласка, увійдіть знову.",
+            type: 'error'
+          });
           this.$router.push('/');
           if (card) card.isProcessing = false;
           return;
@@ -118,7 +123,10 @@ export default {
         // Ендпоінт для підтвердження/відхилення той самий, змінюється лише action в тілі
         const response = await axios.post("/api/admin/cards/confirm", { card_id, action: actionType }, { headers });
 
-        alert(response.data.message || `Дію '${actionType}' для картки ID ${card_id} виконано успішно.`);
+        uiStore.addNotification({
+          message: response.data.message || `Дію '${actionType}' для картки ID ${card_id} виконано успішно.`,
+          type: 'success' // Припускаючи, що це повідомлення про успіх
+        });
         // Оновлюємо список, видаляючи оброблену картку
         this.cardsToApprove = this.cardsToApprove.filter(c => c.id !== card_id);
         if (this.cardsToApprove.length === 0 && !this.isLoading) {
@@ -127,7 +135,10 @@ export default {
 
       } catch (err) {
         console.error(`Помилка при дії '${actionType}' для картки ID ${card_id}:`, err);
-        alert(err.response?.data?.error || `Не вдалося виконати дію '${actionType}' для картки ID ${card_id}.`);
+        uiStore.addNotification({
+          message: response.data.message || `Дію '${actionType}' для картки ID ${card_id} виконано успішно.`,
+          type: 'success' // Припускаючи, що це повідомлення про успіх
+        });
         if (card) {
           card.isProcessing = false;
           card.currentAction = null;

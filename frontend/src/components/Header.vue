@@ -13,9 +13,9 @@
     <nav class="nav-links desktop-nav">
       <ul>
         <li><router-link to="/" @click="closeMobileMenuIfNeeded">Головна</router-link></li>
-        <li><router-link to="/deposit" @click="closeMobileMenuIfNeeded">Депозити</router-link></li>
+        <li v-if="role !== 'ADMIN'"><router-link to="/deposit" @click="closeMobileMenuIfNeeded">Депозити</router-link></li>
         <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="closeMobileMenuIfNeeded">Відкрити карту</router-link></li>
-        <li><router-link to="/credit" @click="closeMobileMenuIfNeeded">Кредити</router-link></li>
+        <li v-if="role !== 'ADMIN'"><router-link to="/credit" @click="closeMobileMenuIfNeeded">Кредити</router-link></li>
       </ul>
     </nav>
 
@@ -76,9 +76,9 @@
     <nav class="mobile-nav" :class="{ 'open': isMobileMenuOpen }">
       <ul>
         <li><router-link to="/" @click="toggleMobileMenu">Головна</router-link></li>
-        <li><router-link to="/deposit" @click="toggleMobileMenu">Депозити</router-link></li>
+        <li v-if="role !== 'ADMIN'"><router-link to="/deposit" @click="toggleMobileMenu">Депозити</router-link></li>
         <li v-if="isLoggedIn && role !== 'ADMIN'"><router-link to="/open-card" @click="toggleMobileMenu">Відкрити карту</router-link></li>
-        <li><router-link to="/credit" @click="toggleMobileMenu">Кредити</router-link></li>
+        <li v-if="role !== 'ADMIN'"><router-link to="/credit" @click="toggleMobileMenu">Кредити</router-link></li>
 
         <li v-if="isLoggedIn" class="nav-separator"></li>
 
@@ -157,6 +157,7 @@ import axios from "axios";
 import { useRouter } from 'vue-router';
 import { useChatStore } from '../store/chatStore';
 import ChatWindow from './ChatWindow.vue';
+import {useUiStore} from "../store/uiStore.js";
 
 export default {
   name: "Header",
@@ -167,6 +168,7 @@ export default {
   setup() {
     const router = useRouter();
     const chatStore = useChatStore();
+    const uiStore = useUiStore();
 
     const showRegisterModal = ref(false);
     const isRegistrationMode = ref(true);
@@ -226,14 +228,20 @@ export default {
       const amount = parseFloat(topUpAmount.value);
 
       if (isNaN(amount) || amount <= 0) {
-        alert('Будь ласка, введіть коректну суму для поповнення.');
+        uiStore.addNotification({
+          message: 'Будь ласка, введіть коректну суму для поповнення.',
+          type: 'error'
+        });
         return;
       }
 
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          alert('Помилка автентифікації. Спробуйте увійти знову.');
+          uiStore.addNotification({
+            message: 'Помилка автентифікації. Спробуйте увійти знову.',
+            type: 'error'
+          });
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
@@ -242,17 +250,17 @@ export default {
 
         showTopUpModal.value = false;
         topUpAmount.value = '';
-        successMessage.value = `Вашу карту поповнено на ${amount.toFixed(2)} UAH`;
-        showTopUpSuccess.value = true;
-
-        if (successTimeout) clearTimeout(successTimeout);
-        successTimeout = setTimeout(() => {
-          showTopUpSuccess.value = false;
-        }, 5000);
+        uiStore.addNotification({
+          message: `Вашу карту поповнено на ${amount.toFixed(2)} UAH`,
+          type: 'success'
+        });
 
       } catch (error) {
         console.error("Помилка поповнення картки:", error);
-        alert('Помилка поповнення: ' + (error.response?.data?.error || error.message));
+        uiStore.addNotification({
+          message: 'Помилка поповнення: ' + (error.response?.data?.error || error.message),
+          type: 'error'
+        });
       }
     };
 
@@ -271,22 +279,32 @@ export default {
     const register = async () => {
       const nameRegex = /^[a-zA-Z]{2,}\s[a-zA-Z]{3,}$/u;
       if (!nameRegex.test(name.value)) {
-        alert(
-            "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери) латиницею."
-        );
+        uiStore.addNotification({
+          message: "Будь ласка, введіть ім'я (мінімум 2 літери) та прізвище (мінімум 3 літери) латиницею.",
+          type: 'error'
+        });
         return;
       }
       const emailRegex = /^(([^<>()[\].,;:\s@"]+(\.[^<>()[\].,;:\s@"]+)*)|(".+"))@(([^<>()[\].,;:\s@"]+\.)+[^<>()[\].,;:\s@"]{2,})$/iu;
       if (!emailRegex.test(email.value)) {
-        alert("Будь ласка, введіть коректну електронну пошту.");
+        uiStore.addNotification({
+          message: "Будь ласка, введіть коректну електронну пошту.",
+          type: 'error'
+        });
         return;
       }
       if (!phone.value) {
-        alert("Будь ласка, введіть номер телефону.");
+        uiStore.addNotification({
+          message: "Будь ласка, введіть номер телефону.",
+          type: 'error'
+        });
         return;
       }
       if (password.value.length < 6) {
-        alert("Пароль повинен містити щонайменше 6 символів.");
+        uiStore.addNotification({
+          message: "Пароль повинен містити щонайменше 6 символів.",
+          type: 'error'
+        });
         return;
       }
 
@@ -297,16 +315,25 @@ export default {
           phone_number: phone.value,
           password: password.value,
         });
-        alert(response.data.message || "Реєстрація успішна! Тепер ви можете увійти.");
+        uiStore.addNotification({
+          message: response.data.message || "Реєстрація успішна! Тепер ви можете увійти.",
+          type: 'success'
+        });
         switchMode(false);
       } catch (error) {
-        alert("Помилка реєстрації: " + (error.response?.data?.error || error.message));
+        uiStore.addNotification({
+          message: "Помилка реєстрації: " + (error.response?.data?.error || error.message),
+          type: 'error'
+        });
       }
     };
 
     const login = async () => {
       if (!email.value || !password.value) {
-        alert("Будь ласка, заповніть email та пароль.");
+        uiStore.addNotification({
+          message: "Будь ласка, заповніть email та пароль.",
+          type: 'error'
+        });
         return;
       }
       try {
@@ -337,7 +364,10 @@ export default {
         closeMobileMenuIfNeeded();
 
       } catch (error) {
-        alert("Помилка входу: " + (error.response?.data?.error || error.message));
+        uiStore.addNotification({
+          message: "Помилка входу: " + (error.response?.data?.error || error.message),
+          type: 'error'
+        });
       }
     };
 

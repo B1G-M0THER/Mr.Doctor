@@ -46,11 +46,13 @@
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import {useUiStore} from "../store/uiStore.js";
 
 const router = useRouter();
 const pendingDeposits = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
+const uiStore = useUiStore();
 
 const fetchPendingDeposits = async () => {
   isLoading.value = true;
@@ -88,7 +90,10 @@ const processDepositDecision = async (depositId, decisionAction) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert("Сесія закінчилася. Будь ласка, увійдіть знову.");
+      uiStore.addNotification({
+        message: "Сесія закінчилася. Будь ласка, увійдіть знову.",
+        type: 'error'
+      });
       await router.push('/');
       if (deposit) deposit.isProcessing = false;
       return;
@@ -97,12 +102,18 @@ const processDepositDecision = async (depositId, decisionAction) => {
     const payload = { decision: decisionAction };
 
     const response = await axios.post(`/api/admin/deposits/decide/${depositId}`, payload, { headers });
-    alert(response.data.message || `Рішення '${decisionAction}' по заявці на депозит #${depositId} прийнято.`);
+    uiStore.addNotification({
+      message: response.data.message || `Рішення '<span class="math-inline">\{decisionAction\}' по заявці на депозит \#</span>{depositId} прийнято.`,
+      type: 'success'
+    });
     pendingDeposits.value = pendingDeposits.value.filter(d => d.id !== depositId);
 
   } catch (err) {
     console.error(`Помилка при рішенні '${decisionAction}' по заявці на депозит #${depositId}:`, err);
-    alert(err.response?.data?.error || `Не вдалося обробити заявку на депозит #${depositId}.`);
+    uiStore.addNotification({
+      message: err.response?.data?.error || `Не вдалося обробити заявку на депозит #${depositId}.`,
+      type: 'error'
+    });
     if (deposit) {
       deposit.isProcessing = false;
       deposit.currentAction = null;

@@ -46,9 +46,11 @@
 import { defineComponent, ref, onMounted } from "vue";
 import axios from "axios";
 import Cards from '../../../backend/src/constants/cards';
+import {useUiStore} from "../store/uiStore.js";
 
 export default defineComponent({
   setup() {
+    const uiStore = useUiStore();
     const user = ref({name: "", email: ""});
     const pin = ref("");
     const showPendingMessageAfterSubmit = ref(false);
@@ -72,7 +74,10 @@ export default defineComponent({
         } else {
           console.error("Помилка отримання статусу картки:", error);
           cardStatus.value = 'error';
-          alert("Не вдалося перевірити статус вашої картки.");
+          uiStore.addNotification({
+            message: "Не вдалося перевірити статус вашої картки.",
+            type: 'error'
+          });
         }
       }
     }
@@ -103,13 +108,19 @@ export default defineComponent({
       showPendingMessageAfterSubmit.value = false;
 
       if (!pin.value || pin.value.length !== 4 || isNaN(pin.value)) {
-        alert("Будь ласка, введіть коректний 4-значний PIN.");
+        uiStore.addNotification({
+          message: "Будь ласка, введіть коректний 4-значний PIN.",
+          type: 'error'
+        });
         loading.value = false;
         return;
       }
 
       if (!user.value.name || !user.value.email) {
-        alert("Дані користувача (ім'я або email) не завантажені!");
+        uiStore.addNotification({
+          message: "Дані користувача (ім'я або email) не завантажені!",
+          type: 'error'
+        });
         loading.value = false;
         return;
       }
@@ -117,7 +128,10 @@ export default defineComponent({
       try {
         const token = localStorage.getItem("token");
         if (!token) {
-          alert("Помилка автентифікації. Спробуйте увійти знову.");
+          uiStore.addNotification({
+            message: "Помилка автентифікації. Спробуйте увійти знову.",
+            type: 'error'
+          });
           loading.value = false;
           return;
         }
@@ -134,7 +148,10 @@ export default defineComponent({
         cardStatus.value = Cards.waiting;
 
       } catch (submitError) {
-        alert(submitError.response?.data?.error || "Помилка створення картки");
+        uiStore.addNotification({
+          message: submitError.response?.data?.error || "Помилка створення картки",
+          type: 'error'
+        });
         error.value = submitError.response?.data?.error || "Помилка створення картки";
       } finally {
         loading.value = false;

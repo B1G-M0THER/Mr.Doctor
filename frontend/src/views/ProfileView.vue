@@ -394,11 +394,15 @@ import axios from 'axios';
 import BankCard from '../components/BankCard.vue';
 import { useDepositStore } from "../store/depositStore.js";
 import {computed} from "vue";
+import {useUiStore} from "../store/uiStore.js";
 
 export default {
   name: 'ProfileView',
   components: {
     BankCard
+  },
+  setup(){
+    const uiStore = useUiStore();
   },
   data() {
     return {
@@ -711,8 +715,6 @@ export default {
 
         await axios.delete(`/api/loans/${loanId}`, {headers});
 
-        // alert(`Історію кредиту #${loanId} успішно видалено.`);
-
         await this.fetchUserLoans();
         this.closeDeleteLoanModal();
 
@@ -890,12 +892,20 @@ export default {
       }
     },
     openTransferModal() {
+      const uiStore = useUiStore();
+
       if (!this.activeCard) {
-        alert("Для здійснення переказу потрібна картка.");
+        uiStore.addNotification({
+          message: "Для здійснення переказу потрібна картка.",
+          type: 'error'
+        });
         return;
       }
       if (this.activeCard.status !== 'active') {
-        alert(`Перекази неможливі. Статус вашої картки: "${this.activeCard.status}".`);
+        uiStore.addNotification({
+          message: `Перекази неможливі. Статус вашої картки: "${this.activeCard.status}".`,
+          type: 'error'
+        });
         return;
       }
       this.transferData = {receiverCardNumber: '', amount: null, senderCVV: '', senderPIN: ''};

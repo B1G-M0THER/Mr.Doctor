@@ -49,6 +49,7 @@
 
 <script>
 import axios from 'axios';
+import {useUiStore} from "../store/uiStore.js";
 
 export default {
   name: 'AdminCardRenewalView',
@@ -57,10 +58,12 @@ export default {
       renewalRequests: [],
       isLoading: true,
       error: null,
+      uiStore: useUiStore(),
     };
   },
   async created() {
     await this.fetchRenewalRequests();
+    this.uiStoreInstance = useUiStore();
   },
   methods: {
     async fetchRenewalRequests() {
@@ -89,6 +92,7 @@ export default {
       }
     },
     async approveRenewal(cardId) {
+      const uiStore = useUiStore();
       const request = this.renewalRequests.find(r => r.id === cardId);
       if (request) {
         request.isApproving = true;
@@ -97,7 +101,10 @@ export default {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          alert("Сесія закінчилася. Будь ласка, увійдіть знову.");
+          uiStore.addNotification({
+            message: "Сесія закінчилася. Будь ласка, увійдіть знову.",
+            type: 'error'
+          });
           this.$router.push('/');
           if (request) request.isApproving = false;
           return;
@@ -105,16 +112,20 @@ export default {
         const headers = { Authorization: `Bearer ${token}` };
         await axios.post(`/api/admin/cards/approve-renewal/${cardId}`, {}, { headers });
 
-        alert(`Поновлення для картки ID ${cardId} успішно підтверджено.`);
+        uiStore.addNotification({
+          message: `Поновлення для картки ID ${cardId} успішно підтверджено.`,
+          type: 'success' // Припускаючи, що це повідомлення про успіх
+        });
         this.renewalRequests = this.renewalRequests.filter(r => r.id !== cardId);
         if (this.renewalRequests.length === 0 && !this.isLoading) {
-          // Якщо це був останній запит, можна оновити весь список, щоб побачити актуальний стан
-          // await this.fetchRenewalRequests();
         }
 
       } catch (err) {
         console.error(`Помилка підтвердження поновлення для картки ID ${cardId}:`, err);
-        alert(err.response?.data?.error || `Не вдалося підтвердити поновлення для картки ID ${cardId}.`);
+        uiStore.addNotification({
+          message: `Поновлення для картки ID ${cardId} успішно підтверджено.`,
+          type: 'success' // Припускаючи, що це повідомлення про успіх
+        });
         if (request) {
           request.isApproving = false;
         }
