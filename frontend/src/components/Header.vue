@@ -358,6 +358,11 @@ export default {
         role.value = response.data.role;
 
         updateAuthStatus();
+
+        if (role.value !== 'ADMIN') {
+          chatStore.connectSocket();
+        }
+
         chatStore.connectSocket();
         chatStore.setupListeners();
         closeModal();
@@ -372,6 +377,10 @@ export default {
     };
 
     const logout = () => {
+      if(isLoggedIn.value && role.value !== 'ADMIN'){
+        chatStore.disconnectSocket();
+      }
+
       chatStore.disconnectSocket();
 
       localStorage.removeItem("token");
@@ -392,9 +401,8 @@ export default {
 
     onMounted(() => {
       updateAuthStatus();
-      if (isLoggedIn.value) {
+      if (isLoggedIn.value && role.value !== 'ADMIN') {
         chatStore.connectSocket();
-        chatStore.setupListeners();
       }
     });
 
