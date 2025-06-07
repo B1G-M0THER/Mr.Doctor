@@ -91,6 +91,10 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     function connectSocket() {
+        if (socketService.isSocketConnected()) {
+            console.log('[ChatStore] Socket is already connected. Skipping setup.');
+            return;
+        }
         socketService.initiateSocketConnection();
         setupListeners();
     }
