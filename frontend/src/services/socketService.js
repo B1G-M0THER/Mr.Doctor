@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { useChatStore } from '../store/chatStore';
 
 let socket;
 
@@ -15,6 +16,9 @@ export const initiateSocketConnection = () => {
                 token: token
             }
         });
+
+        const chatStore = useChatStore();
+        chatStore.setupListeners();
 
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);

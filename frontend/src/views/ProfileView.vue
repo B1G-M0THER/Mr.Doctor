@@ -1087,8 +1087,7 @@ export default {
       this.currencyApiError = null;
       this.allRates = {};
       try {
-        const externalApi = axios.create();
-        const response = await externalApi().get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
+        const response = await axios.get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
         if (response.data && Array.isArray(response.data)) {
           response.data.forEach(currency => {
             this.allRates[currency.cc] = currency.rate;
