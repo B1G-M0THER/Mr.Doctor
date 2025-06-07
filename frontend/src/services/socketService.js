@@ -1,5 +1,4 @@
 import { io } from 'socket.io-client';
-import { useChatStore } from '../store/chatStore';
 
 let socket;
 
@@ -16,9 +15,6 @@ export const initiateSocketConnection = () => {
                 token: token
             }
         });
-
-        const chatStore = useChatStore();
-        chatStore.setupListeners();
 
         socket.on('connect', () => {
             console.log('Socket connected:', socket.id);
@@ -58,6 +54,7 @@ export const subscribeToChatListUpdate = (callback) => {
 export const disconnectSocket = () => {
     if (socket) {
         console.log("Disconnecting socket...");
+        socket.offAny();
         socket.disconnect();
         socket = null;
     }
@@ -72,12 +69,12 @@ const emitEvent = (eventName, data) => {
 };
 
 const subscribeToEvent = (eventName, callback) => {
-    if (socket) {
-        socket.off(eventName, callback);
-        socket.on(eventName, callback);
-    } else {
-        console.error("Socket not initialized for subscription.");
+    if (!socket) {
+        console.error(`Cannot subscribe to "${eventName}". Socket is not initialized.`);
+        return;
     }
+    socket.off(eventName);
+    socket.on(eventName, callback);
 };
 
 export const sendMessage = (receiverId, content) => {

@@ -24,7 +24,6 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     function setupListeners() {
-        const currentUserId = computed(() => parseInt(localStorage.getItem('userId'), 10));
 
         socketService.subscribeToChatDeleted(({ userId, count }) => {
             console.log(`[ChatStore] Received chatDeleted confirmation for userId: ${userId}. Count: ${count}`);
@@ -42,6 +41,7 @@ export const useChatStore = defineStore('chat', () => {
 
         socketService.subscribeToMessages((message) => {
             console.log('[ChatStore] Received message:', message);
+            const currentUserId = computed(() => parseInt(localStorage.getItem('userId'), 10));
             const currentUserRole = localStorage.getItem('role');
 
             if (message.senderId !== currentUserId.value) {
@@ -91,10 +91,21 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     function connectSocket() {
+        if (socketService.isSocketConnected()) {
+            console.log('[ChatStore] Socket is already connected.');
+            return;
+        }
+        console.log('[ChatStore] Initiating socket connection.');
+
         socketService.initiateSocketConnection();
+        setupListeners();
     }
 
     function disconnectSocket() {
+        if (socketService.isSocketConnected()) {
+            console.log('[ChatStore] Disconnecting socket.');
+            socketService.disconnectSocket();
+        }
         socketService.disconnectSocket();
         isChatOpen.value = false;
         messages.value = [];
