@@ -293,13 +293,16 @@ export default {
         });
         return;
       }
-      if (!phone.value) {
+
+      const phoneRegex = /^\+\d{10,14}$/;
+      if (!phone.value || !phoneRegex.test(phone.value.replace(/\s/g, ''))) {
         uiStore.addNotification({
-          message: "Будь ласка, введіть номер телефону.",
+          message: "Будь ласка, введіть повний номер телефону у міжнародному форматі, наприклад: +380991234567.",
           type: 'error'
         });
         return;
       }
+
       if (password.value.length < 6) {
         uiStore.addNotification({
           message: "Пароль повинен містити щонайменше 6 символів.",
