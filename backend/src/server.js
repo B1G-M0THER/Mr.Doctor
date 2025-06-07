@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 4000;
 
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // ВАЖЛИВО: Замінить на URL фронтенду!
+        origin: process.env.FRONTEND_URL || "http://localhost:5173", // ВАЖЛИВО: Замінить на URL фронтенду!
         methods: ["GET", "POST"]
     }
 });
