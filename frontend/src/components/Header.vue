@@ -153,7 +153,7 @@
 <script>
 import { ref, onMounted } from "vue";
 import { VueTelInput } from "vue-tel-input";
-import axios from "axios";
+import api from '../api.js';
 import { useRouter } from 'vue-router';
 import { useChatStore } from '../store/chatStore';
 import ChatWindow from './ChatWindow.vue';
@@ -246,7 +246,7 @@ export default {
         }
         const headers = { Authorization: `Bearer ${token}` };
 
-        const response = await axios.post('/api/cards/topup', { amount }, { headers });
+        const response = await api.post('/api/cards/topup', { amount }, { headers });
 
         showTopUpModal.value = false;
         topUpAmount.value = '';
@@ -309,7 +309,7 @@ export default {
       }
 
       try {
-        const response = await axios.post("/api/register", {
+        const response = await api.post("/api/register", {
           name: name.value,
           email: email.value,
           phone_number: phone.value,
@@ -337,7 +337,7 @@ export default {
         return;
       }
       try {
-        const response = await axios.post("/api/login", {
+        const response = await api.post("/api/login", {
           email: email.value,
           password: password.value,
         });

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
+import api from '../api.js';
 import { ref } from 'vue';
 
 export const useDepositStore = defineStore('deposit', () => {
@@ -19,7 +19,7 @@ export const useDepositStore = defineStore('deposit', () => {
                 new Error("Користувач не авторизований.");
             }
             const headers = { Authorization: `Bearer ${token}` };
-            const response = await axios.post('/api/deposits/apply', depositData, { headers });
+            const response = await api.post('/api/deposits/apply', depositData, { headers });
             applicationMessage.value = response.data.message || "Заявку на депозит успішно подано.";
 
             return true;
@@ -44,7 +44,7 @@ export const useDepositStore = defineStore('deposit', () => {
                 return;
             }
             const headers = { Authorization: `Bearer ${token}` };
-            const response = await axios.get('/api/deposits/my', { headers });
+            const response = await api.get('/api/deposits/my', { headers });
             userDeposits.value = response.data;
         } catch (err) {
             error.value = err.response?.data?.error || "Не вдалося завантажити ваші депозити.";
@@ -63,7 +63,7 @@ export const useDepositStore = defineStore('deposit', () => {
             const token = localStorage.getItem('token');
             if (!token) throw new Error("Користувач не авторизований.");
             const headers = { Authorization: `Bearer ${token}` };
-            const response = await axios.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
+            const response = await api.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
             withdrawalMessage.value = response.data.message;
             await fetchUserDeposits(); // Оновити список депозитів
             return { success: true, data: response.data };
@@ -85,7 +85,7 @@ export const useDepositStore = defineStore('deposit', () => {
             const token = localStorage.getItem('token');
             if (!token) throw new Error("Користувач не авторизований.");
             const headers = { Authorization: `Bearer ${token}` };
-            const response = await axios.post(`/api/deposits/${depositId}/withdraw-matured`, {}, { headers });
+            const response = await api.post(`/api/deposits/${depositId}/withdraw-matured`, {}, { headers });
             withdrawalMessage.value = response.data.message;
             await fetchUserDeposits(); // Оновити список
             return { success: true, data: response.data };

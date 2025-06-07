@@ -13,7 +13,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from '../api.js';
 
 export default {
   name: "AdminProfileView",
@@ -34,7 +34,7 @@ export default {
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get("/api/profile", { headers });
+        const response = await api.get("/api/profile", { headers });
 
         if (response.data.role === "ADMIN") {
           this.user = response.data;

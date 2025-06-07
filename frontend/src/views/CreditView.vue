@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../api.js';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -87,7 +87,7 @@ export default {
         userCard.value = null;
         try {
           const headers = { Authorization: `Bearer ${token}` };
-          const response = await axios.get('/api/cards/mycard', { headers });
+          const response = await api.get('/api/cards/mycard', { headers });
           if (response.data && response.data.id) {
             userCard.value = response.data;
           } else {
@@ -167,7 +167,7 @@ export default {
           termInMonths: loanData.value.termInMonths,
         };
 
-        const response = await axios.post('/api/loans/apply', payload, { headers });
+        const response = await api.post('/api/loans/apply', payload, { headers });
 
         submissionSuccessMessage.value = response.data.message || "Заявку на кредит успішно подано! Очікуйте на розгляд.";
         loanData.value.amount = null;

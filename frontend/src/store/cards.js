@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import axios from "axios";
+import api from '../api.js';
 
 export const useCardStore = defineStore("card", {
     state: () => ({
@@ -8,7 +8,7 @@ export const useCardStore = defineStore("card", {
     actions: {
         async createCard(name, email, pin) {
             try {
-                const response = await axios.post("/api/cards/create", { name, email, pin });
+                const response = await api.post("/api/cards/create", { name, email, pin });
                 this.cardNumber = response.data.cardNumber;
                 return response.data;
             } catch (error) {
