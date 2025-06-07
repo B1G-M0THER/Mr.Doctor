@@ -67,7 +67,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../api.js';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {useUiStore} from "../store/uiStore.js";
@@ -95,7 +95,7 @@ export default {
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/admin/loans/pending', { headers });
+        const response = await api.get('/api/admin/loans/pending', { headers });
         pendingLoans.value = response.data.map(loan => ({ ...loan, isProcessing: false, currentAction: null }));
       } catch (err) {
         console.error("Помилка завантаження заявок на кредит:", err);
@@ -148,7 +148,7 @@ export default {
         const headers = { Authorization: `Bearer ${token}` };
         const payload = { decision: decisionAction };
 
-        const response = await axios.post(`/api/admin/loans/decide/${loanId}`, payload, { headers });
+        const response = await api.post(`/api/admin/loans/decide/${loanId}`, payload, { headers });
         uiStore.addNotification({
           message: response.data.message || `Рішення '<span class="math-inline">\{decisionAction\}' по заявці \#</span>{loanId} прийнято.`,
           type: 'success'

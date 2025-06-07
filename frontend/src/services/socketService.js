@@ -6,7 +6,7 @@ export const initiateSocketConnection = () => {
     const token = localStorage.getItem('token');
     if (token && !socket?.connected) {
         console.log("Initiating socket connection...");
-        socket = io(import.meta.env.VITE_API_URL, {
+        socket = io(import.meta.env.VITE_API_URL || 'http://localhost:4000', {
             auth: {
                 token: token
             }

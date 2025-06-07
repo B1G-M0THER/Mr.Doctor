@@ -54,7 +54,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from '../api.js';
 import {useUiStore} from "../store/uiStore.js";
 export default {
   name: "AdminCardApproval", // Змінено ім'я для ясності, якщо потрібно
@@ -83,7 +83,7 @@ export default {
         }
         const headers = { Authorization: `Bearer ${token}` };
         // Цей ендпоінт /api/admin/cards повертає картки зі статусом "waiting"
-        const response = await axios.get("/api/admin/cards", { headers });
+        const response = await api.get("/api/admin/cards", { headers });
         this.cardsToApprove = response.data.map(card => ({
           ...card,
           isProcessing: false,
@@ -121,7 +121,7 @@ export default {
         }
         const headers = { Authorization: `Bearer ${token}` };
         // Ендпоінт для підтвердження/відхилення той самий, змінюється лише action в тілі
-        const response = await axios.post("/api/admin/cards/confirm", { card_id, action: actionType }, { headers });
+        const response = await api.post("/api/admin/cards/confirm", { card_id, action: actionType }, { headers });
 
         uiStore.addNotification({
           message: response.data.message || `Дію '${actionType}' для картки ID ${card_id} виконано успішно.`,

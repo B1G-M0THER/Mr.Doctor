@@ -48,7 +48,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../api.js';
 import {useUiStore} from "../store/uiStore.js";
 
 export default {
@@ -78,7 +78,7 @@ export default {
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get('/api/admin/cards/renewal-requests', { headers });
+        const response = await api.get('/api/admin/cards/renewal-requests', { headers });
         this.renewalRequests = response.data.map(req => ({ ...req, isApproving: false }));
       } catch (err) {
         console.error("Помилка завантаження запитів на поновлення:", err);
@@ -110,7 +110,7 @@ export default {
           return;
         }
         const headers = { Authorization: `Bearer ${token}` };
-        await axios.post(`/api/admin/cards/approve-renewal/${cardId}`, {}, { headers });
+        await api.post(`/api/admin/cards/approve-renewal/${cardId}`, {}, { headers });
 
         uiStore.addNotification({
           message: `Поновлення для картки ID ${cardId} успішно підтверджено.`,

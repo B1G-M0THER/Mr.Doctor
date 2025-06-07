@@ -44,7 +44,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import api from '../api.js';
 import { useRouter } from 'vue-router';
 import {useUiStore} from "../store/uiStore.js";
 
@@ -64,7 +64,7 @@ const fetchPendingDeposits = async () => {
       return;
     }
     const headers = { Authorization: `Bearer ${token}` };
-    const response = await axios.get('/api/admin/deposits/pending', { headers });
+    const response = await api.get('/api/admin/deposits/pending', { headers });
     pendingDeposits.value = response.data.map(deposit => ({ ...deposit, isProcessing: false, currentAction: null }));
   } catch (err) {
     console.error("Помилка завантаження заявок на депозит:", err);
@@ -101,7 +101,7 @@ const processDepositDecision = async (depositId, decisionAction) => {
     const headers = { Authorization: `Bearer ${token}` };
     const payload = { decision: decisionAction };
 
-    const response = await axios.post(`/api/admin/deposits/decide/${depositId}`, payload, { headers });
+    const response = await api.post(`/api/admin/deposits/decide/${depositId}`, payload, { headers });
     uiStore.addNotification({
       message: response.data.message || `Рішення '<span class="math-inline">\{decisionAction\}' по заявці на депозит \#</span>{depositId} прийнято.`,
       type: 'success'

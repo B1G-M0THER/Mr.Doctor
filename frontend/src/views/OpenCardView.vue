@@ -44,7 +44,7 @@
 
 <script>
 import { defineComponent, ref, onMounted } from "vue";
-import axios from "axios";
+import api from '../api.js';
 import Cards from '../../../backend/src/constants/cards';
 import {useUiStore} from "../store/uiStore.js";
 
@@ -66,7 +66,7 @@ export default defineComponent({
       }
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const response = await axios.get("/api/cards/mycard", { headers });
+        const response = await api.get("/api/cards/mycard", { headers });
         cardStatus.value = response.data.status;
       } catch (error) {
         if (error.response && error.response.status === 404) {
@@ -89,7 +89,7 @@ export default defineComponent({
 
       if (token) {
         const headers = { Authorization: `Bearer ${token}` };
-        axios.get("/api/profile", { headers })
+        api.get("/api/profile", { headers })
             .then((response) => {
               user.value.name = response.data.name || "";
               user.value.email = response.data.email || "";
@@ -136,7 +136,7 @@ export default defineComponent({
           return;
         }
 
-        const response = await axios.post("/api/cards/create", {
+        const response = await api.post("/api/cards/create", {
           token: token,
           pin: pin.value
         });

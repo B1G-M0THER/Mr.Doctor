@@ -81,7 +81,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useDepositStore } from '../store/depositStore';
-import axios from 'axios'; // Для перевірки картки
+import api from '../api.js'; // Для перевірки картки
 
 const depositStore = useDepositStore();
 
@@ -116,7 +116,7 @@ const checkLoginAndCardStatus = async () => {
     userCard.value = null;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get('/api/cards/mycard', { headers });
+      const response = await api.get('/api/cards/mycard', { headers });
       if (response.data && response.data.id) {
         userCard.value = response.data;
       } else {

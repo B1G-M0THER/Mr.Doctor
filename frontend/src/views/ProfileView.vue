@@ -390,7 +390,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '../api.js';
 import BankCard from '../components/BankCard.vue';
 import { useDepositStore } from "../store/depositStore.js";
 import {computed} from "vue";
@@ -652,7 +652,7 @@ export default {
         const headers = { Authorization: `Bearer ${token}` };
         const depositId = this.selectedDepositForWithdrawal.id;
 
-        const response = await axios.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
+        const response = await api.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
 
         this.earlyWithdrawalSuccessMessage = response.data.message || "Депозит успішно розірвано, кошти зараховані.";
         await this.depositStore.fetchUserDeposits();
@@ -713,7 +713,7 @@ export default {
         const headers = {Authorization: `Bearer ${token}`};
         const loanId = this.loanToDelete.id;
 
-        await axios.delete(`/api/loans/${loanId}`, {headers});
+        await api.delete(`/api/loans/${loanId}`, {headers});
 
         await this.fetchUserLoans();
         this.closeDeleteLoanModal();
@@ -736,7 +736,7 @@ export default {
           return;
         }
         const headers = {Authorization: `Bearer ${token}`};
-        const response = await axios.get('/api/loans/my', {headers});
+        const response = await api.get('/api/loans/my', {headers});
         this.userLoans = response.data;
       } catch (error) {
         console.error("Помилка завантаження кредитів:", error);
@@ -816,7 +816,7 @@ export default {
         const payload = {paymentAmount: this.paymentData.calculatedAmountToSend};
         const loanId = this.selectedLoanForPayment.id;
 
-        const response = await axios.post(`/api/loans/${loanId}/pay`, payload, {headers});
+        const response = await api.post(`/api/loans/${loanId}/pay`, payload, {headers});
 
         this.paymentSuccessMessage = response.data.message || "Платіж успішно здійснено!";
         await this.fetchUserLoans();
@@ -853,7 +853,7 @@ export default {
           return;
         }
         const headers = {Authorization: `Bearer ${token}`};
-        const response = await axios.get('/api/profile', {headers});
+        const response = await api.get('/api/profile', {headers});
         this.user = response.data;
       } catch (error) {
         console.error("Помилка завантаження даних користувача:", error);
@@ -875,7 +875,7 @@ export default {
           return;
         }
         const headers = {Authorization: `Bearer ${token}`};
-        const response = await axios.get('/api/cards/mycard', {headers});
+        const response = await api.get('/api/cards/mycard', {headers});
         if (response.data && response.data.id) {
           this.activeCard = response.data;
         } else {
@@ -1020,7 +1020,7 @@ export default {
           senderCVV: this.transferData.senderCVV,
           senderPIN: this.transferData.senderPIN
         };
-        const response = await axios.post('/api/transactions/transfer', payload, {headers});
+        const response = await api.post('/api/transactions/transfer', payload, {headers});
         this.transferSuccessMessage = response.data.message || "Переказ успішно виконано!";
         await this.fetchCardData();
         setTimeout(() => {
@@ -1060,7 +1060,7 @@ export default {
         }
         const headers = {Authorization: `Bearer ${token}`};
         const payload = {newPin: this.renewalData.newPin};
-        const response = await axios.post('/api/cards/renew', payload, {headers});
+        const response = await api.post('/api/cards/renew', payload, {headers});
         this.renewalSuccessMessage = response.data.message || "Запит на поновлення картки прийнято!";
         if (response.data.updatedCardPreview) {
           this.activeCard = {
@@ -1086,7 +1086,7 @@ export default {
       this.currencyApiError = null;
       this.allRates = {};
       try {
-        const response = await axios.get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
+        const response = await api.get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
         if (response.data && Array.isArray(response.data)) {
           response.data.forEach(currency => {
             this.allRates[currency.cc] = currency.rate;
@@ -1227,7 +1227,7 @@ export default {
         const headers = {Authorization: `Bearer ${token}`};
         const loanId = this.penaltyToPayDetails.id;
 
-        const response = await axios.post(`/api/loans/${loanId}/pay-penalty`, {}, {headers});
+        const response = await api.post(`/api/loans/${loanId}/pay-penalty`, {}, {headers});
 
         this.payPenaltySuccessMessage = response.data.message || "Штраф успішно сплачено!";
         await this.fetchUserLoans();
