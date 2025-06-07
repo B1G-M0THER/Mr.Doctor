@@ -390,6 +390,7 @@
 </template>
 
 <script>
+import axios from 'axios';
 import api from '../api.js';
 import BankCard from '../components/BankCard.vue';
 import { useDepositStore } from "../store/depositStore.js";
@@ -1086,7 +1087,8 @@ export default {
       this.currencyApiError = null;
       this.allRates = {};
       try {
-        const response = await api.get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
+        const externalApi = axios.create();
+        const response = await externalApi().get('https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json');
         if (response.data && Array.isArray(response.data)) {
           response.data.forEach(currency => {
             this.allRates[currency.cc] = currency.rate;

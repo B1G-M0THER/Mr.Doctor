@@ -2,6 +2,10 @@ import { io } from 'socket.io-client';
 
 let socket;
 
+export const isSocketConnected = () => {
+    return !!(socket && socket.connected);
+};
+
 export const initiateSocketConnection = () => {
     const token = localStorage.getItem('token');
     if (token && !socket?.connected) {
