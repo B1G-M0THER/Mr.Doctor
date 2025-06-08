@@ -106,7 +106,11 @@ export default {
     },
 
     formattedBalance() {
-      return this.balance.toFixed(2) + ' UAH';
+      const balanceNumber = parseFloat(this.balance);
+      if (isNaN(balanceNumber)) {
+        return '0.00 UAH';
+      }
+      return balanceNumber.toFixed(2) + ' UAH';
     },
 
     isExpired() {
