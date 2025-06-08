@@ -113,7 +113,7 @@ const formatDateSeparator = (timestamp) => {
   if (!timestamp) return '';
   const date = new Date(timestamp);
   const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // Місяці починаються з 0
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   const year = date.getFullYear();
   return `${day}.${month}.${year}`;
 };
@@ -434,16 +434,15 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .admin-chat-view {
-    flex-direction: column; /* Панелі одна під одною */
-    height: auto; /* Висота підлаштовується під контент */
-    /* Або можна задати calc(100vh - висота_хедера_мобільного) якщо хедер фіксований */
+    flex-direction: column;
+    height: auto;
   }
   .user-list-panel {
-    width: 100%; /* На всю ширину */
+    width: 100%;
     border-right: none;
-    border-bottom: 1px solid #444; /* Розділювач знизу */
-    max-height: 250px; /* Обмежити висоту списку користувачів, зробити його прокручуваним */
-    flex-shrink: 0; /* Щоб не стискався */
+    border-bottom: 1px solid #444;
+    max-height: 250px;
+    flex-shrink: 0;
   }
   .user-list-panel h2 {
     font-size: 1em;
@@ -459,8 +458,7 @@ onMounted(() => {
   }
 
   .chat-panel {
-    height: calc(100vh - 60px - 250px - 20px); /* Приблизно: висота екрану - хедер - список_юзерів - відступи */
-    /* Або просто flex-grow: 1; якщо .admin-chat-view має фіксовану висоту */
+    height: calc(100vh - 60px - 250px - 20px);
   }
   .chat-header {
     padding: 12px;

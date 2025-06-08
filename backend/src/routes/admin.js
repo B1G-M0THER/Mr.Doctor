@@ -180,7 +180,6 @@ router.post("/loans/decide/:loanId", async (req, res) => {
 
         let updatedLoanData = {};
         const now = new Date();
-        // Використовуємо дані з існуючого запису кредиту
         const loanAmount = parseFloat(loan.amount.toFixed(2));
         const interestRate = parseFloat(loan.interest_rate.toFixed(2));
         const termInMonths = loan.term;
@@ -228,7 +227,7 @@ router.post("/loans/decide/:loanId", async (req, res) => {
                 return approvedLoan;
             });
             return res.status(200).json({ message: "Кредит схвалено на початкових умовах, кошти зараховано.", loan: result });
-        } else { // 'reject'
+        } else {
             const rejectedLoan = await prisma.loans.update({
                 where: { id: parseInt(loanId) },
                 data: updatedLoanData,
@@ -275,7 +274,7 @@ router.post("/deposits/decide/:depositId", async (req, res) => {
     if (!token) return res.status(401).json({ error: "Неавторизований доступ." });
 
     const { depositId } = req.params;
-    const { decision } = req.body; // 'approve' or 'reject'
+    const { decision } = req.body;
 
     try {
         const decoded = jwt.verify(token, process.env.SECRET_KEY);

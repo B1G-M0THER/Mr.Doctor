@@ -52,7 +52,6 @@ router.get('/mycard', async (req, res) => {
                 status: userCard.status,
                 balance: userCard.balance,
             };
-            // ЛОГУВАННЯ 3: Що відправляємо на фронтенд
             console.log('[BACKEND /mycard] Payload to frontend:', JSON.stringify(responsePayload, null, 2));
             return res.status(200).json(responsePayload);
         } else {

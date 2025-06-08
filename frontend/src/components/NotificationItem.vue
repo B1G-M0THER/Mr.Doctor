@@ -24,14 +24,14 @@ function closeNotification() {
 
 <style scoped>
 .notification-item {
-  color: #e0e0e0; /* Світло-сірий текст для кращої читабельності на темних фонах */
+  color: #e0e0e0;
   padding: 12px 18px;
-  margin-bottom: 10px; /* Залишаємо, якщо контейнер не використовує gap */
+  margin-bottom: 10px;
   border-radius: 6px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); /* Трохи м'якша тінь */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease-out;
   cursor: default;
   min-width: 300px;
@@ -39,7 +39,7 @@ function closeNotification() {
   word-wrap: break-word;
   border-left-width: 5px;
   border-left-style: solid;
-  background-color: #2c332f; /* Базовий темний фон, трохи зеленуватий */
+  background-color: #2c332f;
 }
 
 .notification-item:hover {
@@ -47,32 +47,28 @@ function closeNotification() {
   box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* Інформаційне сповіщення */
 .notification-item.info {
-  background-color: #2a3b4d; /* Глибокий синьо-сірий */
-  border-left-color: #5c9aff; /* Яскравий, але не надто, синій акцент */
+  background-color: #2a3b4d;
+  border-left-color: #5c9aff;
   color: #e0f0ff;
 }
 
-/* Сповіщення про успіх */
 .notification-item.success {
-  background-color: #1e4620; /* Темно-насичений зелений фон */
-  border-left-color: #42b983; /* Ваш фірмовий зелений для акценту */
-  color: #d9f7e6; /* Світло-зелений текст */
+  background-color: #1e4620;
+  border-left-color: #42b983;
+  color: #d9f7e6;
 }
 
-/* Попереджувальне сповіщення */
 .notification-item.warning {
-  background-color: #4d3800; /* Темно-жовтий/гірчичний фон */
-  border-left-color: #f0ad4e; /* Класичний жовтий для попереджень */
-  color: #fff3cd; /* Світло-жовтий текст */
+  background-color: #4d3800;
+  border-left-color: #f0ad4e;
+  color: #fff3cd;
 }
 
-/* Сповіщення про помилку */
 .notification-item.error {
-  background-color: #5c1f1f; /* Темно-червоний фон */
-  border-left-color: #ff6b6b; /* Яскраво-червоний акцент */
-  color: #fde0e0; /* Світло-червоний текст */
+  background-color: #5c1f1f;
+  border-left-color: #ff6b6b;
+  color: #fde0e0;
 }
 
 .message {
@@ -85,13 +81,13 @@ function closeNotification() {
 .close-button {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.5); /* Менш помітний хрестик */
+  color: rgba(255, 255, 255, 0.5);
   font-size: 22px;
   font-weight: bold;
   cursor: pointer;
-  padding: 0 0 0 10px; /* Відступ зліва від тексту */
+  padding: 0 0 0 10px;
   line-height: 1;
-  align-self: flex-start; /* Вирівнювання по верху, якщо текст багаторядковий */
+  align-self: flex-start;
 }
 .close-button:hover {
   color: rgba(255, 255, 255, 0.8);

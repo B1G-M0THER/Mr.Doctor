@@ -110,10 +110,10 @@ export default {
     },
 
     isExpired() {
-      return this.status === 'expired'; // Використовуємо константу, якщо імпортували: CardStatuses.expired
+      return this.status === 'expired';
     },
     isRenewalPending() {
-      return this.status === 'renewal_pending'; // CardStatuses.renewal_pending
+      return this.status === 'renewal_pending';
     },
     isDisabled() {
       return this.isExpired || this.isRenewalPending;
@@ -368,34 +368,33 @@ body {
   filter: blur(3px);
 }
 
-/* Нове: стилі для оверлея простроченої/очікуючої картки */
 .card-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.6); /* Напівпрозорий темний фон */
+  background-color: rgba(0, 0, 0, 0.6);
   border-radius: 15px;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 5; /* Має бути вище за .card-front та .card-back, але нижче за .card-container */
-  pointer-events: all; /* Щоб блокувати кліки на саму картку, але дозволяти на контейнер */
-  text-decoration: line-through; /* Перекреслення для тексту під оверлеєм */
+  z-index: 5;
+  pointer-events: all;
+  text-decoration: line-through;
   text-decoration-color: rgba(255, 82, 82, 0.7);
   text-decoration-thickness: 3px;
 }
 
 .overlay-text {
-  color: #ff5252; /* Червоний колір для тексту статусу */
+  color: #ff5252;
   font-size: 24px;
   font-weight: bold;
   padding: 10px 20px;
   background-color: rgba(26, 26, 26, 0.8);
   border-radius: 8px;
   text-align: center;
-  text-decoration: none; /* Забираємо перекреслення з самого тексту оверлея */
+  text-decoration: none;
   border: 1px solid #ff5252;
 }
 </style>

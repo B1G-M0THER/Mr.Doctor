@@ -394,7 +394,6 @@ import axios from 'axios';
 import api from '../api.js';
 import BankCard from '../components/BankCard.vue';
 import { useDepositStore } from "../store/depositStore.js";
-import {computed} from "vue";
 import {useUiStore} from "../store/uiStore.js";
 
 export default {
@@ -509,9 +508,9 @@ export default {
     openWithdrawMaturedModal(deposit) {
       this.selectedDepositForMaturedWithdrawal = {...deposit};
       this.maturedWithdrawalError = null;
-      this.depositStore.error = null; // Скидання помилок стору
+      this.depositStore.error = null;
       this.maturedWithdrawalSuccessMessage = null;
-      this.depositStore.withdrawalMessage = null; // Скидання повідомлень стору
+      this.depositStore.withdrawalMessage = null;
       this.showWithdrawMaturedModal = true;
     },
     closeWithdrawMaturedModal() {
@@ -545,8 +544,7 @@ export default {
 
       if (result.success) {
         this.maturedWithdrawalSuccessMessage = result.data.message || "Кошти по депозиту успішно отримані.";
-        // await this.depositStore.fetchUserDeposits(); // Вже викликається всередині дії стору
-        await this.fetchCardData(); // Оновити баланс картки
+        await this.fetchCardData();
         setTimeout(() => {
           this.closeWithdrawMaturedModal();
         }, 500);
@@ -579,7 +577,6 @@ export default {
       return date.toLocaleDateString('uk-UA');
     },
 
-    // Допоміжна функція для розрахунку простих відсотків (дублює ту, що на бекенді, для UI)
     _calculateSimpleInterestForUI(principal, annualRate, startDate, endDate) {
       if (!startDate || !endDate || new Date(endDate) <= new Date(startDate)) {
         return 0;
@@ -637,7 +634,6 @@ export default {
         this.earlyWithdrawalError = cardStatusError;
         return;
       }
-
 
       this.isProcessingEarlyWithdrawal = true;
       this.earlyWithdrawalError = null;
@@ -957,7 +953,7 @@ export default {
         newCursorPosition = Math.max(0, newCursorPosition);
         try {
           input.setSelectionRange(newCursorPosition, newCursorPosition);
-        } catch (e) { /* ігнор */
+        } catch (e) {
         }
       });
     },
@@ -1117,8 +1113,8 @@ export default {
       } catch (error) {
         console.error("Помилка завантаження списку валют НБУ:", error);
         this.currencyApiError = "Не вдалося завантажити курси валют. Спробуйте пізніше.";
-        this.supportedCurrencies = ['UAH', 'USD', 'EUR', 'PLN']; // Fallback у випадку помилки
-        this.allRates = {'UAH': 1.0, 'USD': 40.0, 'EUR': 43.0, 'PLN': 10.0}; // Приблизні fallback курси
+        this.supportedCurrencies = ['UAH', 'USD', 'EUR', 'PLN'];
+        this.allRates = {'UAH': 1.0, 'USD': 40.0, 'EUR': 43.0, 'PLN': 10.0};
         this.nbuExchangeDate = new Date().toLocaleDateString('uk-UA');
       } finally {
         this.isLoadingCurrencies = false;
@@ -1570,45 +1566,42 @@ h2 {
 
 @media (max-width: 768px) {
   .page {
-    max-width: 100%; /* Дозволити займати всю ширину */
+    max-width: 100%;
     padding: 15px 10px;
   }
   h1 {
-    font-size: 24px; /* Зменшити заголовок */
+    font-size: 24px;
   }
   h2 {
     font-size: 20px;
   }
   .user-info p, .deposit-details p, .loan-details p {
-    font-size: 14px; /* Зменшити текст для кращої читабельності */
+    font-size: 14px;
   }
-
   .loans-grid, .deposits-grid {
-    grid-template-columns: 1fr; /* Один елемент в рядку */
+    grid-template-columns: 1fr;
     gap: 15px;
   }
   .loan-item, .deposit-item {
     padding: 12px 15px;
   }
-  .action-button, .submit-button { /* Зробити кнопки більш адаптивними */
+  .action-button, .submit-button {
     font-size: 14px;
     padding: 10px 15px;
-    min-width: 150px; /* Можна зменшити або прибрати */
+    min-width: 150px;
   }
   .card-actions {
-    flex-direction: column; /* Кнопки картки одна під одною */
-    align-items: stretch; /* Розтягнути кнопки */
+    flex-direction: column;
+    align-items: stretch;
   }
   .card-actions .action-button {
     width: 100%;
-    max-width: 300px; /* Обмеження максимальної ширини */
+    max-width: 300px;
     margin-left: auto;
     margin-right: auto;
   }
-
-
   .modal-content {
-    max-width: 400px; /* Модалки не ширші за 90% екрану */
+    max-width: 400px;
     padding: 20px;
   }
   .modal-content h3 {
@@ -1622,8 +1615,6 @@ h2 {
     font-size: 15px;
     padding: 10px 12px;
   }
-
-  /* Адаптація конвертера валют (якщо ще не зроблено повністю) */
   .currency-converter-section.compact .form-row.compact-row {
     flex-direction: column;
     align-items: stretch;
@@ -1653,7 +1644,7 @@ h2 {
     width: 100%;
   }
   .modal-content {
-    max-width: 280px; /* Модалки не ширші за 90% екрану */
+    max-width: 280px;
     padding: 20px;
   }
   .modal-content h3 {
@@ -1836,7 +1827,7 @@ h2 {
   flex-grow: 1;
 }
 
-.loan-actions-closed-rejected { /* Додав, щоб стилізувати контейнер кнопки видалення */
+.loan-actions-closed-rejected {
   margin-top: 10px;
   display: flex;
   flex-direction: column;
@@ -1844,7 +1835,7 @@ h2 {
   gap: 10px;
 }
 
-.modal-content .loan-payment-details { /* Вже є, можна використати */
+.modal-content .loan-payment-details {
   border-bottom: 1px solid #333;
   padding-bottom: 15px;
   margin-bottom: 20px;
@@ -1866,11 +1857,11 @@ h2 {
   background-color: #218838;
 }
 
-.deposit-status-matured-display { /* Стиль для значка "Термін завершено" */
+.deposit-status-matured-display {
   background-color: #007bff !important;
   color: white !important;
 }
-.get-funds-button { /* Стиль для кнопки "Отримати кошти" */
+.get-funds-button {
   background-color: #007bff;
 }
 .get-funds-button:hover {

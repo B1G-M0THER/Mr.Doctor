@@ -91,15 +91,13 @@ export default {
           if (response.data && response.data.id) {
             userCard.value = response.data;
           } else {
-            // Це не помилка 404, а просто порожні дані, вважаємо, що картки немає
             userCard.value = null;
           }
         } catch (error) {
           console.error("Помилка завантаження даних картки для кредиту:", error);
           if (error.response && error.response.status === 404) {
-            userCard.value = null; // Картки немає
+            userCard.value = null;
           } else {
-            // Інша помилка при завантаженні картки
             cardError.value = error.response?.data?.message || "Не вдалося перевірити статус вашої картки.";
           }
         } finally {
@@ -343,7 +341,7 @@ h1 {
 }
 
 @media (max-width: 768px) {
-  .request-loan-page { /* Загальний клас сторінки */
+  .request-loan-page {
     padding: 20px 15px;
   }
   h1 {

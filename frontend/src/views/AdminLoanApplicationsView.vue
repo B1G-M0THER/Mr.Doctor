@@ -1,6 +1,16 @@
 <template>
   <div class="admin-page">
     <h1>Заявки на кредит (Очікують розгляду)</h1>
+
+    <div class="search-bar-container">
+      <input
+          type="text"
+          v-model="searchTerm"
+          placeholder="Пошук за іменем або email..."
+          class="search-input"
+      />
+    </div>
+
     <div v-if="isLoading" class="loading-message"><p>Завантаження заявок...</p></div>
     <div v-else-if="error" class="error-message"><p>{{ error }}</p></div>
     <div v-else-if="pendingLoans.length === 0" class="no-requests"><p>Наразі немає активних заявок на кредит.</p></div>
@@ -68,7 +78,7 @@
 
 <script>
 import api from '../api.js';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {useUiStore} from "../store/uiStore.js";
 
@@ -84,6 +94,7 @@ export default {
     const decisionErrorInModal = ref(null);
     const isLoadingDecision = ref(false);
     const uiStore = useUiStore();
+    const searchTerm = ref('');
 
     const fetchPendingLoans = async () => {
       isLoading.value = true;
@@ -108,6 +119,18 @@ export default {
         isLoading.value = false;
       }
     };
+
+    const filteredLoans = computed(() => {
+      if (!searchTerm.value) {
+        return pendingLoans.value;
+      }
+      const lowerCaseSearchTerm = searchTerm.value.toLowerCase();
+      return pendingLoans.value.filter(loan => {
+        const userName = loan.Users.name.toLowerCase();
+        const userEmail = loan.Users.email.toLowerCase();
+        return userName.includes(lowerCaseSearchTerm) || userEmail.includes(lowerCaseSearchTerm);
+      });
+    });
 
     const openApproveConfirmationModal = (loan) => {
       selectedLoan.value = { ...loan };
@@ -187,7 +210,7 @@ export default {
     onMounted(fetchPendingLoans);
 
     return {
-      pendingLoans,
+      pendingLoans: filteredLoans,
       isLoading,
       error,
       showApproveModal,
@@ -197,12 +220,39 @@ export default {
       openApproveConfirmationModal,
       closeApproveConfirmationModal,
       processLoanDecision,
+      searchTerm,
     };
   }
 };
 </script>
 
 <style scoped>
+.search-bar-container {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: #333;
+  color: #fff;
+  font-size: 15px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #42b983;
+  box-shadow: 0 0 0 2px rgba(66,185,131,0.3);
+  outline: none;
+}
+.search-input::placeholder {
+  color: #888;
+}
 
 .admin-page {
   padding: 20px;
@@ -238,9 +288,9 @@ h1 {
   color: #ccc;
 }
 
-.requests-list { /* Обгортка для таблиці */
-  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
-  -webkit-overflow-scrolling: touch; /* Плавна прокрутка на iOS */
+.requests-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .requests-list table {

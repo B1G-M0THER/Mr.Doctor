@@ -25,6 +25,7 @@ const routes = [
   { path: '/admin/card-renewal-requests', name: 'AdminCardRenewalRequests', component: AdminCardRenewalView, beforeEnter: adminGuard},
   { path: '/admin/loan-applications', name: 'AdminLoanApplicationsView', component: AdminLoanApplicationsView, beforeEnter: adminGuard },
   { path: '/admin/deposit-applications', name: 'AdminDepositApprovalView', component: AdminDepositApprovalView, beforeEnter: adminGuard},
+  { path: '/:pathMatch(.*)*', name: 'NotFound', redirect: '/' },
 ];
 
 const router = createRouter({

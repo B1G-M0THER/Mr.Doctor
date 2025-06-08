@@ -203,7 +203,7 @@ export const makeLoanPayment = async (req, res) => {
             if (userCard.status === Cards.blocked) {
                 throw { status: 403, message: "Платіж неможливий: ваша картка заблокована." };
             }
-            if (userCard.status !== Cards.active) { // Загальна перевірка, якщо не expired і не blocked, але все ще не active
+            if (userCard.status !== Cards.active) {
                 throw { status: 403, message: `Платіж неможливий: ваша картка не активна (статус: ${userCard.status}).` };
             }
 

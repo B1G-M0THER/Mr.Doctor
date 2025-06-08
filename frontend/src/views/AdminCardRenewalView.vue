@@ -1,13 +1,23 @@
 <template>
   <div class="admin-page">
     <h1>Запити на поновлення карток</h1>
+
+    <div class="search-bar-container">
+      <input
+          type="text"
+          v-model="searchTerm"
+          placeholder="Пошук за іменем або email власника..."
+          class="search-input"
+      />
+    </div>
+
     <div v-if="isLoading" class="loading-message">
       <p>Завантаження запитів...</p>
     </div>
     <div v-else-if="error" class="error-message">
       <p>{{ error }}</p>
     </div>
-    <div v-else-if="renewalRequests.length === 0" class="no-requests">
+    <div v-else-if="filteredRequests.length === 0" class="no-requests">
       <p>Наразі немає запитів на поновлення карток.</p>
     </div>
     <div v-else class="requests-list">
@@ -24,7 +34,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="request in renewalRequests" :key="request.id">
+        <tr v-for="request in filteredRequests" :key="request.id">
           <td>{{ request.id }}</td>
           <td>{{ request.card_number }}</td>
           <td>{{ request.holder_name }} (ID: {{ request.holder_id }})</td>
@@ -59,11 +69,25 @@ export default {
       isLoading: true,
       error: null,
       uiStore: useUiStore(),
+      searchTerm: '',
     };
   },
   async created() {
     await this.fetchRenewalRequests();
     this.uiStoreInstance = useUiStore();
+  },
+  computed: {
+    filteredRequests() {
+      if (!this.searchTerm) {
+        return this.renewalRequests;
+      }
+      const lowerCaseSearchTerm = this.searchTerm.toLowerCase();
+      return this.renewalRequests.filter(request => {
+        const holderName = request.holder_name.toLowerCase();
+        const holderEmail = request.holder_email.toLowerCase();
+        return holderName.includes(lowerCaseSearchTerm) || holderEmail.includes(lowerCaseSearchTerm);
+      });
+    }
   },
   methods: {
     async fetchRenewalRequests() {
@@ -114,7 +138,7 @@ export default {
 
         uiStore.addNotification({
           message: `Поновлення для картки ID ${cardId} успішно підтверджено.`,
-          type: 'success' // Припускаючи, що це повідомлення про успіх
+          type: 'success'
         });
         this.renewalRequests = this.renewalRequests.filter(r => r.id !== cardId);
         if (this.renewalRequests.length === 0 && !this.isLoading) {
@@ -122,9 +146,9 @@ export default {
 
       } catch (err) {
         console.error(`Помилка підтвердження поновлення для картки ID ${cardId}:`, err);
-        uiStore.addNotification({
-          message: `Поновлення для картки ID ${cardId} успішно підтверджено.`,
-          type: 'success' // Припускаючи, що це повідомлення про успіх
+        this.uiStore.addNotification({
+          message: err.response?.data?.error || `Не вдалося підтвердити поновлення для картки ID ${cardId}.`,
+          type: 'error'
         });
         if (request) {
           request.isApproving = false;
@@ -140,6 +164,33 @@ export default {
 </script>
 
 <style scoped>
+.search-bar-container {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: #333;
+  color: #fff;
+  font-size: 15px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #42b983;
+  box-shadow: 0 0 0 2px rgba(66,185,131,0.3);
+  outline: none;
+}
+.search-input::placeholder {
+  color: #888;
+}
+
 .admin-page {
   padding: 20px;
   max-width: 1000px;
@@ -174,9 +225,9 @@ h1 {
   color: #ccc;
 }
 
-.requests-list { /* Обгортка для таблиці */
-  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
-  -webkit-overflow-scrolling: touch; /* Плавна прокрутка на iOS */
+.requests-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .requests-list table {
@@ -236,26 +287,26 @@ h1 {
   }
   .requests-list th,
   .requests-list td {
-    font-size: 0.85em; /* Трохи менший шрифт в таблиці */
+    font-size: 0.85em;
     padding: 8px 6px;
   }
   .action-button {
     padding: 6px 8px;
     font-size: 0.8em;
-    min-width: auto; /* Прибираємо мін ширину, щоб краще вміщались */
+    min-width: auto;
   }
-  .actions-cell { /* Якщо кнопки в стовпчик */
-    min-width: 120px; /* Мінімальна ширина для комірки з кнопками */
+  .actions-cell {
+    min-width: 120px;
   }
 }
 
 @media (max-width: 480px) {
   .requests-list table {
-    min-width: 600px; /* Можна ще зменшити, якщо деякі колонки не критичні */
+    min-width: 600px;
   }
   .requests-list th,
   .requests-list td {
-    white-space: nowrap; /* Щоб текст не переносився і не розтягував рядки по висоті */
+    white-space: nowrap;
   }
 }
 </style>
