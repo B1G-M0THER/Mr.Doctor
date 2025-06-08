@@ -73,6 +73,7 @@ export const topUpCardBalance = async (req, res) => {
         }
 
         card = await checkAndHandleCardExpiry(card);
+        const currentBalance = parseFloat(card.balance);
 
         const currentBalance = parseFloat(card.balance);
 
