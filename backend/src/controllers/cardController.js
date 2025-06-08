@@ -73,6 +73,7 @@ export const topUpCardBalance = async (req, res) => {
         }
 
         card = await checkAndHandleCardExpiry(card);
+
         const currentBalance = parseFloat(card.balance);
 
         if (card.status === Cards.expired) {
