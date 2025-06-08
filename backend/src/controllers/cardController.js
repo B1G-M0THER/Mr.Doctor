@@ -54,7 +54,6 @@ export const topUpCardBalance = async (req, res) => {
         return res.status(401).json({ error: 'Не вдалося ідентифікувати користувача.' });
     }
 
-    const currentBalance = parseFloat(prisma.cards.balance);
     const { amount } = req.body;
     const topUpAmount = parseFloat(amount);
     if (isNaN(topUpAmount) || topUpAmount <= 0) {
@@ -74,6 +73,8 @@ export const topUpCardBalance = async (req, res) => {
         }
 
         card = await checkAndHandleCardExpiry(card);
+
+        const currentBalance = parseFloat(card.balance);
 
         if (card.status === Cards.expired) {
             return res.status(403).json({ error: "Операція неможлива: термін дії картки закінчився. Поновіть картку." });
