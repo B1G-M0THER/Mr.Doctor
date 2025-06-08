@@ -149,7 +149,7 @@ router.get("/loans/pending", async (req, res) => {
         const formattedLoans = pendingLoans.map(loan => ({
             ...loan,
             created_at_formatted: new Date(loan.created_at).toLocaleDateString('uk-UA') + " " + new Date(loan.created_at).toLocaleTimeString('uk-UA'),
-            amount: parseFloat(loan.amount),
+            amount: parseFloat(loan.amount.toFixed(2)),
             interest_rate: parseFloat(loan.interest_rate.toFixed(2))
         }));
         res.status(200).json(formattedLoans);
@@ -180,7 +180,7 @@ router.post("/loans/decide/:loanId", async (req, res) => {
 
         let updatedLoanData = {};
         const now = new Date();
-        const loanAmount = parseFloat(loan.amount);
+        const loanAmount = parseFloat(loan.amount.toFixed(2));
         const interestRate = parseFloat(loan.interest_rate.toFixed(2));
         const termInMonths = loan.term;
 
@@ -216,10 +216,8 @@ router.post("/loans/decide/:loanId", async (req, res) => {
                     throw new Error(`Неможливо видати кредит: у користувача (ID: ${approvedLoan.user_id}) немає активної картки.`);
                 }
 
-                const currentCardBalance = parseFloat(userActiveCard.balance);
-                const loanAmountNum = parseFloat(loan.amount);
-
-                const newCardBalance = currentCardBalance + loanAmountNum;
+                const currentCardBalance = userActiveCard.balance;
+                const newCardBalance = parseFloat((currentCardBalance + loanAmount).toFixed(2));
 
                 await tx.cards.update({
                     where: { id: userActiveCard.id },
@@ -297,7 +295,7 @@ router.post("/deposits/decide/:depositId", async (req, res) => {
                 return res.status(400).json({ error: `Неможливо схвалити депозит: у користувача (ID: ${deposit.user_id}) немає активної картки.` });
             }
             if (userCard.balance < deposit.amount) {
-                return res.status(400).json({ error: `Неможливо схвалити депозит: недостатньо коштів на картці користувача (ID: ${deposit.user_id}). Потрібно ${deposit.amount}, доступно ${userCard.balance.toFixed(2)}.` });
+                return res.status(400).json({ error: `Неможливо схвалити депозит: недостатньо коштів на картці користувача (ID: ${deposit.user_id}). Потрібно ${deposit.amount.toFixed(2)}, доступно ${userCard.balance.toFixed(2)}.` });
             }
 
             const approvalTime = new Date();
