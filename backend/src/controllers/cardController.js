@@ -54,7 +54,7 @@ export const topUpCardBalance = async (req, res) => {
         return res.status(401).json({ error: 'Не вдалося ідентифікувати користувача.' });
     }
 
-    const currentBalance = parseFloat(cards.balance);
+    const currentBalance = parseFloat(prisma.cards.balance);
     const { amount } = req.body;
     const topUpAmount = parseFloat(amount);
     if (isNaN(topUpAmount) || topUpAmount <= 0) {
@@ -91,7 +91,7 @@ export const topUpCardBalance = async (req, res) => {
             return res.status(403).json({ error: `Операція неможлива: статус картки "${card.status}".` });
         }
         if (currentBalance + topUpAmount > MAX_CARD_BALANCE) {
-            return res.status(403).json({ error: `Поповнення неможливе. Максимальний баланс картки (${MAX_CARD_BALANCE.toLocaleString('uk-UA')} UAH) буде перевищено.` });
+            return res.status(400).json({ error: `Поповнення неможливе. Максимальний баланс картки (${MAX_CARD_BALANCE.toLocaleString('uk-UA')} UAH) буде перевищено.` });
         }
 
         const updatedCard = await prisma.cards.update({
