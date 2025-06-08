@@ -110,7 +110,7 @@ export default {
       if (isNaN(balanceNumber)) {
         return '0.00 UAH';
       }
-      return this.balance.toFixed(2) + ' UAH';
+      return balanceNumber.toFixed(2) + ' UAH';
     },
 
     isExpired() {
