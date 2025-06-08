@@ -22,10 +22,10 @@ export const applyForDeposit = async (req, res) => {
     const depositAmount = parseFloat(amount);
     const term = parseInt(termInMonths, 10);
 
-    if (isNaN(depositAmount) || depositAmount <= 100) { // Мінімальна сума депозиту, наприклад 100
+    if (isNaN(depositAmount) || depositAmount <= 100) {
         return res.status(400).json({ error: "Сума депозиту повинна бути більшою за 100 UAH." });
     }
-    if (isNaN(term) || term < 3 || term > 36) { // Приклад обмежень: 3-36 місяців
+    if (isNaN(term) || term < 3 || term > 36) {
         return res.status(400).json({ error: "Термін депозиту повинен бути від 3 до 36 місяців." });
     }
 
@@ -46,7 +46,6 @@ export const applyForDeposit = async (req, res) => {
         if (userCard.status !== CardStatuses.active) {
             return res.status(403).json({ error: `Неможливо створити депозит: ваша картка не активна (статус: ${userCard.status}).` });
         }
-        // Перевірка балансу картки (гроші знімуться тільки після схвалення адміном, але можна перевірити наявність зараз)
         if (userCard.balance < depositAmount) {
             return res.status(400).json({ error: `Недостатньо коштів на картці для відкриття депозиту. Потрібно: ${depositAmount.toFixed(2)} UAH.` });
         }
@@ -55,7 +54,7 @@ export const applyForDeposit = async (req, res) => {
             data: {
                 user_id: userId,
                 amount: depositAmount,
-                interest_rate: DEFAULT_ANNUAL_INTEREST_RATE, // Використовуємо фіксовану ставку
+                interest_rate: DEFAULT_ANNUAL_INTEREST_RATE,
                 term: term,
                 status: Deposits.waiting_approval,
                 early_withdrawal_penalty_percent: EARLY_WITHDRAWAL_PENALTY_PERCENT,
@@ -86,7 +85,7 @@ export const getUserDeposits = async (req, res) => {
 
             if (dep.status === Deposits.active && dep.approved_at) {
                 const approvalDate = new Date(dep.approved_at);
-                const maturityDate = dep.maturity_date ? new Date(dep.maturity_date) : null; // ЗМІНА: Отримуємо maturity_date
+                const maturityDate = dep.maturity_date ? new Date(dep.maturity_date) : null;
 
                 let endDateForInterestCalc = now;
 
@@ -94,7 +93,6 @@ export const getUserDeposits = async (req, res) => {
                     endDateForInterestCalc = maturityDate;
                 }
 
-                // ЗМІНА: Переконуємось, що дата схвалення раніше кінцевої дати для розрахунку
                 if (approvalDate < endDateForInterestCalc) {
                     calculated_accrued_interest = calculateSimpleInterest(
                         dep.amount,
@@ -105,7 +103,7 @@ export const getUserDeposits = async (req, res) => {
                 }
                 current_value += calculated_accrued_interest;
 
-            } else if (dep.status === Deposits.closed_early || dep.status === Deposits.closed_by_term) { // ЗМІНА: Додав перевірку на closed_by_term
+            } else if (dep.status === Deposits.closed_early || dep.status === Deposits.closed_by_term) {
                 calculated_accrued_interest = dep.calculated_accrued_interest || 0;
                 current_value = dep.calculated_total_payout || dep.amount;
             }
@@ -139,15 +137,13 @@ export const requestEarlyWithdrawal = async (req, res) => {
             return res.status(400).json({ error: `Неможливо достроково розірвати депозит зі статусом "${deposit.status}".` });
         }
 
-        // ЗМІНА: Додано перевірку, щоб не дозволити "дострокове" розірвання, якщо термін вже вийшов
         if (deposit.maturity_date && new Date() >= new Date(deposit.maturity_date)) {
             return res.status(400).json({ error: "Термін депозиту вже завершився. Оберіть опцію 'Отримати кошти'." });
         }
 
         const userCard = await prisma.cards.findFirst({
-            where: { holder_id: userId } // ЗМІНА: Спочатку знаходимо картку, потім перевіряємо статус
+            where: { holder_id: userId }
         });
-        // ЗМІНА: Додані детальніші перевірки статусу картки
         if (!userCard) {
             return res.status(403).json({ error: "Неможливо вивести кошти: у вас немає банківської картки для зарахування." });
         }
@@ -245,7 +241,7 @@ export const withdrawMaturedDeposit = async (req, res) => {
             await tx.deposits.update({
                 where: { id: parseInt(depositId) },
                 data: {
-                    status: Deposits.closed_by_term, // Встановлюємо фінальний статус
+                    status: Deposits.closed_by_term,
                     closed_at: new Date(),
                     calculated_accrued_interest: finalAccruedInterest,
                     calculated_total_payout: totalPayout,

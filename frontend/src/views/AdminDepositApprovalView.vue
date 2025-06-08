@@ -1,9 +1,19 @@
 <template>
   <div class="admin-page">
     <h1>Заявки на депозит (Очікують розгляду)</h1>
+
+    <div class="search-bar-container">
+      <input
+          type="text"
+          v-model="searchTerm"
+          placeholder="Пошук за іменем або email..."
+          class="search-input"
+      />
+    </div>
+
     <div v-if="isLoading" class="loading-message"><p>Завантаження заявок на депозит...</p></div>
     <div v-else-if="error" class="error-message"><p>{{ error }}</p></div>
-    <div v-else-if="pendingDeposits.length === 0" class="no-requests"><p>Наразі немає активних заявок на депозит.</p></div>
+    <div v-else-if="filteredDeposits.length === 0" class="no-requests"><p>Наразі немає активних заявок на депозит.</p></div>
     <div v-else class="requests-list">
       <table>
         <thead>
@@ -19,7 +29,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="deposit in pendingDeposits" :key="deposit.id">
+        <tr v-for="deposit in filteredDeposits" :key="deposit.id">
           <td>{{ deposit.id }}</td>
           <td>{{ deposit.Users.name }} (ID: {{ deposit.Users.id }})</td>
           <td>{{ deposit.Users.email }}</td>
@@ -43,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted,computed } from 'vue';
 import api from '../api.js';
 import { useRouter } from 'vue-router';
 import {useUiStore} from "../store/uiStore.js";
@@ -53,6 +63,18 @@ const pendingDeposits = ref([]);
 const isLoading = ref(true);
 const error = ref(null);
 const uiStore = useUiStore();
+const searchTerm = ref('');
+
+const filteredDeposits = computed(() => {
+  if (!searchTerm.value) {
+    return pendingDeposits.value;
+  }
+  const lowerCaseSearch = searchTerm.value.toLowerCase();
+  return pendingDeposits.value.filter(deposit =>
+      deposit.Users.name.toLowerCase().includes(lowerCaseSearch) ||
+      deposit.Users.email.toLowerCase().includes(lowerCaseSearch)
+  );
+});
 
 const fetchPendingDeposits = async () => {
   isLoading.value = true;
@@ -132,7 +154,33 @@ onMounted(fetchPendingDeposits);
 </script>
 
 <style scoped>
-/* Стилі аналогічні до AdminLoanApplicationsView.vue та AdminCardApproval.vue */
+.search-bar-container {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: #333;
+  color: #fff;
+  font-size: 15px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.search-input:focus {
+  border-color: #42b983;
+  box-shadow: 0 0 0 2px rgba(66,185,131,0.3);
+  outline: none;
+}
+.search-input::placeholder {
+  color: #888;
+}
+
 .admin-page {
   padding: 20px;
   max-width: 1200px;
@@ -167,9 +215,9 @@ h1 {
   color: #ccc;
 }
 
-.requests-list { /* Обгортка для таблиці */
-  overflow-x: auto; /* Дозволяє горизонтальну прокрутку */
-  -webkit-overflow-scrolling: touch; /* Плавна прокрутка на iOS */
+.requests-list {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .requests-list table {
@@ -177,7 +225,7 @@ h1 {
   width: 100%;
   border-collapse: collapse;
   margin-top: 20px;
-  table-layout: auto; /* або fixed, якщо потрібно */
+  table-layout: auto;
 }
 
 .requests-list th,
@@ -206,10 +254,9 @@ h1 {
 
 .actions-cell {
   display: flex;
-  flex-direction: column; /* Або row, якщо кнопки мають бути в ряд */
-  gap: 8px; /* Відстань між кнопками */
-  align-items: stretch; /* Розтягує кнопки на всю ширину комірки, якщо column */
-  /* min-width: 180px; */ /* Мінімальна ширина для комірки дій */
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
   text-align: center;
 }
 
@@ -221,7 +268,7 @@ h1 {
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-size: 0.9em;
-  width: 100%; /* Якщо flex-direction: column */
+  width: 100%;
   text-align: center;
 }
 
@@ -234,7 +281,7 @@ h1 {
 
 .action-button.reject {
   background-color: #dc3545;
-  margin-top: 0; /* Якщо кнопки в стовпчик і є gap */
+  margin-top: 0;
 }
 .action-button.reject:hover {
   background-color: #c82333;
@@ -254,26 +301,26 @@ h1 {
   }
   .requests-list th,
   .requests-list td {
-    font-size: 0.85em; /* Трохи менший шрифт в таблиці */
+    font-size: 0.85em;
     padding: 8px 6px;
   }
   .action-button {
     padding: 6px 8px;
     font-size: 0.8em;
-    min-width: auto; /* Прибираємо мін ширину, щоб краще вміщались */
+    min-width: auto;
   }
-  .actions-cell { /* Якщо кнопки в стовпчик */
-    min-width: 120px; /* Мінімальна ширина для комірки з кнопками */
+  .actions-cell {
+    min-width: 120px;
   }
 }
 
 @media (max-width: 480px) {
   .requests-list table {
-    min-width: 600px; /* Можна ще зменшити, якщо деякі колонки не критичні */
+    min-width: 600px;
   }
   .requests-list th,
   .requests-list td {
-    white-space: nowrap; /* Щоб текст не переносився і не розтягував рядки по висоті */
+    white-space: nowrap;
   }
 }
 </style>

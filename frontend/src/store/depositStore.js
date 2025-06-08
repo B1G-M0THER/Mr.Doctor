@@ -6,7 +6,7 @@ export const useDepositStore = defineStore('deposit', () => {
     const userDeposits = ref([]);
     const isLoading = ref(false);
     const error = ref(null);
-    const applicationMessage = ref(null); // Для повідомлень після подання заявки
+    const applicationMessage = ref(null);
     const withdrawalMessage = ref(null);
 
     async function applyForDeposit(depositData) {
@@ -25,7 +25,7 @@ export const useDepositStore = defineStore('deposit', () => {
             return true;
         } catch (err) {
             error.value = err.response?.data?.error || err.message || "Помилка при поданні заявки на депозит.";
-            applicationMessage.value = null; // Очистити повідомлення про успіх, якщо була помилка
+            applicationMessage.value = null;
             console.error("Error in applyForDeposit:", error.value);
             return false;
         } finally {
@@ -48,7 +48,7 @@ export const useDepositStore = defineStore('deposit', () => {
             userDeposits.value = response.data;
         } catch (err) {
             error.value = err.response?.data?.error || "Не вдалося завантажити ваші депозити.";
-            userDeposits.value = []; // Очистити депозити у випадку помилки
+            userDeposits.value = [];
             console.error("Error in fetchUserDeposits:", error.value);
         } finally {
             isLoading.value = false;
@@ -61,16 +61,16 @@ export const useDepositStore = defineStore('deposit', () => {
         withdrawalMessage.value = null;
         try {
             const token = localStorage.getItem('token');
-            if (!token) throw new Error("Користувач не авторизований.");
+            if (!token) new Error("Користувач не авторизований.");
             const headers = { Authorization: `Bearer ${token}` };
             const response = await api.post(`/api/deposits/${depositId}/withdraw-early`, {}, { headers });
             withdrawalMessage.value = response.data.message;
-            await fetchUserDeposits(); // Оновити список депозитів
+            await fetchUserDeposits();
             return { success: true, data: response.data };
         } catch (err) {
             error.value = err.response?.data?.error || "Помилка дострокового розірвання.";
             console.error("Error in requestEarlyWithdrawal:", error.value);
-            withdrawalMessage.value = null; // Очистити повідомлення про успіх у разі помилки
+            withdrawalMessage.value = null;
             return { success: false, error: error.value };
         } finally {
             isLoading.value = false;
@@ -87,12 +87,12 @@ export const useDepositStore = defineStore('deposit', () => {
             const headers = { Authorization: `Bearer ${token}` };
             const response = await api.post(`/api/deposits/${depositId}/withdraw-matured`, {}, { headers });
             withdrawalMessage.value = response.data.message;
-            await fetchUserDeposits(); // Оновити список
+            await fetchUserDeposits();
             return { success: true, data: response.data };
         } catch (err) {
             error.value = err.response?.data?.error || "Помилка отримання коштів по депозиту.";
             console.error("Error in withdrawMaturedDeposit:", error.value);
-            withdrawalMessage.value = null; // Очистити повідомлення про успіх у разі помилки
+            withdrawalMessage.value = null;
             return { success: false, error: error.value };
         } finally {
             isLoading.value = false;

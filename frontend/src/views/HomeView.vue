@@ -77,18 +77,16 @@ export default {
 </script>
 
 <style scoped>
-.page.home-view-content { /* Додаємо клас для специфічності */
+.page.home-view-content {
   text-align: center;
-  padding: 20px; /* Базовий відступ для мобільних */
-  max-width: 900px; /* Обмеження максимальної ширини контенту */
-  margin: 0 auto; /* Центрування */
-  color: #cfd8dc; /* Основний колір тексту */
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  color: #cfd8dc;
 }
 
 .hero-section {
-  background: linear-gradient(rgba(26, 26, 26, 0.7), rgba(26, 26, 26, 0.7)), url('../assets/home_hero_bg.jpg'); /* Потрібно додати фонове зображення home_hero_bg.jpg */
   background-size: cover;
-  background-position: center;
   padding: 60px 20px;
   border-radius: 8px;
   margin-bottom: 40px;
@@ -96,7 +94,7 @@ export default {
 }
 
 .hero-section h1 {
-  font-size: 2.5em; /* Динамічний розмір */
+  font-size: 2.5em;
   margin-bottom: 15px;
   color: #ffffff;
   font-weight: 600;
@@ -114,8 +112,8 @@ export default {
 h2 {
   font-size: 2em;
   margin-bottom: 20px;
-  margin-top: 40px; /* Відступ між секціями */
-  color: #42b983; /* Фірмовий зелений */
+  margin-top: 40px;
+  color: #42b983;
   border-bottom: 1px solid #3a3a3a;
   padding-bottom: 10px;
 }
@@ -123,11 +121,11 @@ h2 {
 section p, section ul {
   font-size: 1em;
   line-height: 1.7;
-  text-align: left; /* Для кращої читабельності довгих текстів */
+  text-align: left;
   margin-bottom: 20px;
 }
 section p {
-  padding: 0 10px; /* Невеликі відступи для параграфів */
+  padding: 0 10px;
 }
 
 
@@ -139,15 +137,15 @@ section p {
 
 .benefits-list li {
   display: flex;
-  align-items: flex-start; /* Вирівнювання по верху для емодзі та тексту */
+  align-items: flex-start;
   margin-bottom: 15px;
   font-size: 1em;
 }
 
 .emoji-bullet {
-  font-size: 1.5em; /* Розмір емодзі */
+  font-size: 1.5em;
   margin-right: 15px;
-  line-height: 1.4; /* Вирівнювання емодзі з текстом */
+  line-height: 1.4;
 }
 
 .benefits-list li div {
@@ -175,7 +173,7 @@ section p {
 }
 
 .call-to-action .cta-link {
-  color: #5cb85c; /* Яскраво-зелений для акценту */
+  color: #5cb85c;
   font-weight: bold;
   cursor: pointer;
   text-decoration: underline;
@@ -184,9 +182,7 @@ section p {
   color: #4cae4c;
 }
 
-
-/* Адаптація під мобільні пристрої */
-@media (min-width: 769px) { /* Стилі для екранів ширших за планшет */
+@media (min-width: 769px) {
   .page.home-view-content {
     padding: 40px 50px;
   }
@@ -203,7 +199,6 @@ section p {
     font-size: 1.1em;
   }
 }
-
 
 @media (max-width: 768px) {
   .page.home-view-content {

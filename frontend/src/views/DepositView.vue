@@ -81,17 +81,17 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useDepositStore } from '../store/depositStore';
-import api from '../api.js'; // Для перевірки картки
+import api from '../api.js';
 
 const depositStore = useDepositStore();
 
-const preDefinedInterestRate = ref(10.0); // Фіксована ставка 10%
+const preDefinedInterestRate = ref(10.0);
 
 const calculator = reactive({
   amount: null,
   term: null,
-  amountInput: 0, // Для збереження введеної суми для відображення
-  termInput: 0,   // Для збереження введеного терміну
+  amountInput: 0,
+  termInput: 0,
   result: null,
 });
 
@@ -137,7 +137,6 @@ const checkLoginAndCardStatus = async () => {
 
 onMounted(() => {
   checkLoginAndCardStatus();
-  // Очищаємо повідомлення зі стору при завантаженні сторінки, щоб не показувати старі
   depositStore.applicationMessage = null;
   depositStore.error = null;
 });
@@ -177,13 +176,12 @@ function calculateDeposit() {
     const months = calculator.term;
     const annualRate = preDefinedInterestRate.value / 100;
 
-    // Простий відсоток: I = P * R_місячна * T_місяців
     const monthlyRate = annualRate / 12;
     const interest = principal * monthlyRate * months;
     const total = principal + interest;
 
-    calculator.amountInput = principal; // Зберігаємо введену суму
-    calculator.termInput = months;     // Зберігаємо введений термін
+    calculator.amountInput = principal;
+    calculator.termInput = months;
     calculator.result = {
       interest: interest,
       total: total,
@@ -194,7 +192,7 @@ function calculateDeposit() {
 }
 
 async function submitDepositApplication() {
-  depositStore.applicationMessage = null; // Очищаємо попередні повідомлення
+  depositStore.applicationMessage = null;
   depositStore.error = null;
 
   if (!depositData.value.amount || !depositData.value.termInMonths) {
@@ -214,7 +212,6 @@ async function submitDepositApplication() {
     return;
   }
 
-
   const success = await depositStore.applyForDeposit({
     amount: depositData.value.amount,
     termInMonths: depositData.value.termInMonths,
@@ -223,8 +220,7 @@ async function submitDepositApplication() {
   if (success) {
     depositData.value.amount = null;
     depositData.value.termInMonths = null;
-    // calculator.result = null; // Очистити результати калькулятора, якщо потрібно
-    // Заявка відправлена, повідомлення покажеться зі стору
+    calculator.result = null;
   }
 }
 </script>
@@ -291,7 +287,7 @@ h1 {
   height: 42px;
 }
 .form-group .static-rate {
-  line-height: 20px; /* Для вирівнювання тексту як в input */
+  line-height: 20px;
   color: #42b983;
   font-weight: bold;
 }
@@ -368,7 +364,7 @@ h1 {
 .success-message.main-success {
   padding: 12px;
   border-radius: 5px;
-  margin-top: 15px; /* Додав відступ зверху */
+  margin-top: 15px;
   margin-bottom: 10px;
   font-size: 14px;
   text-align: center;
@@ -407,7 +403,7 @@ h1 {
 }
 
 @media (max-width: 768px) {
-  .deposit-page{ /* Загальний клас сторінки */
+  .deposit-page{
     padding: 20px 15px;
   }
   h1 {
@@ -416,7 +412,7 @@ h1 {
   .description {
     font-size: 0.95em;
   }
-  .card-style { /* Стиль обгортки для калькулятора/форми */
+  .card-style {
     padding: 15px;
   }
   .form-group input[type="number"], .form-group .static-rate {

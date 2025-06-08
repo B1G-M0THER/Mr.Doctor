@@ -109,7 +109,7 @@
         </div>
         <div v-if="isRegistrationMode">
           <form @submit.prevent="register">
-            <div class="form-group"><label for="name">Ім'я:</label><input type="text" v-model="name" autocomplete="name" placeholder="Введіть ваше ім'я" required /></div>
+            <div class="form-group"><label for="name">Ім'я та прізвище:</label><input type="text" v-model="name" autocomplete="name" placeholder="Введіть ваше ім'я та прізвище" required /></div>
             <div class="form-group"><label for="email">Електронна пошта:</label><input type="email" v-model="email" autocomplete="email" placeholder="Введіть ваш email" required /></div>
             <div class="form-group"><label for="phone">Телефон:</label><vue-tel-input v-model="phone" :input-options="{ placeholder: 'Введіть номер телефону'}" /></div>
             <div class="form-group"><label for="password">Пароль:</label><input type="password" v-model="password" placeholder="Введіть ваш пароль" required /></div>
@@ -133,7 +133,7 @@
         <form @submit.prevent="submitTopUp">
           <div class="form-group">
             <label for="topup-amount">Введіть суму (UAH):</label>
-            <input type="number" id="topup-amount" v-model="topUpAmount" placeholder="Наприклад, 500" step="0.01" min="1" required />
+            <input type="number" id="topup-amount" v-model="topUpAmount" placeholder="Наприклад, 500" step="0.01" min="1" max="100000" required />
           </div>
           <div class="form-group">
             <button type="submit" class="submit-button">Поповнити</button>
@@ -610,16 +610,16 @@ export default {
   width: 100%;
 }
 
-.user-actions-group { /* Обгортка для іконок балансу/чату та блоку профілю/виходу */
+.user-actions-group {
   display: flex;
   align-items: center;
   gap: 15px;
 }
 
 .auth-section {
-  display: flex; /* Дозволяє .user-actions-group вирівнятися по центру вертикально */
+  display: flex;
   align-items: center;
-  gap: 10px; /* Якщо будуть інші елементи поруч з .user-actions-group */
+  gap: 10px;
 }
 
 .auth-button {
@@ -871,7 +871,7 @@ export default {
 .desktop-specific-icon {
 }
 
-.profile-logout-stack { /* Нова обгортка для іконки профілю та кнопки "Вийти" */
+.profile-logout-stack {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -910,7 +910,7 @@ export default {
 .mobile-nav {
   display: none;
   position: absolute;
-  top: 60px; /* Висота вашого хедера */
+  top: 60px;
   left: 0;
   right: 0;
   background-color: #1c1c1e;
@@ -928,66 +928,58 @@ export default {
 }
 .mobile-nav ul li a:hover, .mobile-nav ul li.mobile-nav-action:hover { background-color: #2a2f33; color: #42b983; }
 
-/* Стилі для додаткових дій в мобільному меню (якщо вони там будуть) */
 .mobile-nav ul li.mobile-nav-action { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .mobile-nav ul li.mobile-nav-action img { width: 20px; height: 20px; filter: invert(1); }
-.mobile-nav ul li.mobile-nav-action:hover img {
-  filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%);
-}
-.mobile-nav ul li.nav-separator { height: 1px; background-color: #2a2f33; margin: 5px 0; padding: 0;}
-.mobile-nav ul li a.profile-link {display: flex; align-items: center; gap: 10px;} /* Для посилання на профіль в мобільному меню, якщо воно там буде */
+.mobile-nav ul li.mobile-nav-action:hover img { filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%); }
+.mobile-nav ul li.nav-separator { height: 1px; background-color: #2a2f33; margin: 5px 0; padding: 0; }
+.mobile-nav ul li a.profile-link { display: flex; align-items: center; gap: 10px; }
 .mobile-nav ul li a.profile-link img { width: 20px; height: 20px; filter: invert(1); }
-.mobile-nav ul li a.profile-link:hover img {
-  filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%);
-}
+.mobile-nav ul li a.profile-link:hover img { filter: invert(59%) sepia(70%) saturate(456%) hue-rotate(96deg) brightness(94%) contrast(90%); }
 
 .unread-indicator.mobile-unread {
-  position: static; /* Скидаємо абсолютне позиціонування */
-  display: inline-block; /* Для розміщення поруч з текстом */
-  margin-left: 5px; /* Невеликий відступ */
+  position: static;
+  display: inline-block;
+  margin-left: 5px;
 }
 
-/* Адаптація для планшетів і менших екранів */
-@media (max-width: 992px) { /* Точка перелому для показу гамбургера */
+@media (max-width: 992px) {
   .nav-links.desktop-nav {
-    display: none; /* Ховаємо десктопну навігацію */
+    display: none;
   }
   .hamburger-menu {
-    display: block; /* Показуємо гамбургер */
+    display: block;
   }
-  .desktop-specific-icon { /* Ховаємо десктоп-специфічні іконки типу "баланс", "чат" */
+  .desktop-specific-icon {
     display: none;
   }
   .profile-logout-stack {
     display: none;
   }
-  /* Ховаємо оригінальну кнопку "Вийти", що була поруч з іконкою профілю */
+
   .profile-container .logout-button .profile-icon-link .profile-icon{
     display: none !important;
   }
-  .logout-button-stacked { /* Показуємо кнопку "Вийти" під іконкою профілю */
+  .logout-button-stacked {
     display: block;
   }
   .auth-section {
-    margin-left: auto; /* Притискає блок профілю/виходу вправо */
+    margin-left: auto;
   }
 }
 
-
 @media (max-width: 768px) {
-
-  .auth-section .balance-icon-container.desktop-specific-icon, /* Явно ховаємо, якщо ще не приховані */
+  .auth-section .balance-icon-container.desktop-specific-icon,
   .auth-section .chat-icon-container.desktop-specific-icon {
     display: none;
   }
-  .profile-icon { /* Зменшуємо іконки профілю/чату/балансу */
+  .profile-icon {
     width: 30px;
     height: 30px;
   }
   .profile-logout-stack {
     display: none;
   }
-  .auth-button { /* Кнопка Реєстрація/Логін */
+  .auth-button {
     font-size: 13px;
     padding: 7px 12px;
   }
@@ -995,8 +987,8 @@ export default {
 
 @media (max-width: 480px) {
   .modal-content {
-    width: 90%; /* Або calc(100% - 30px) */
-    max-width: none; /* Прибираємо фіксований max-width */
+    width: 90%;
+    max-width: none;
     padding: 20px 15px;
   }
   .modal-content h3, .tabs button {
@@ -1012,27 +1004,27 @@ export default {
   }
 
   .navbar {
-    padding: 5px 10px; /* Менші відступи на дуже малих екранах */
+    padding: 5px 10px;
     height: 50px;
   }
   .mobile-nav {
-    top: 50px; /* Відповідно до нової висоти хедера */
+    top: 50px;
   }
   .logo img {
     height: 50px;
-    margin-right: 2px; /* Менший відступ від гамбургера */
+    margin-right: 2px;
   }
   .hamburger-menu {
-    padding: 3px; /* Ще компактніше */
+    padding: 3px;
   }
-  .profile-icon-link { /* Менша іконка профілю */
+  .profile-icon-link {
     width: 28px;
     height: 28px;
   }
   .profile-logout-stack {
     display: none;
   }
-  .auth-button { /* Кнопка "Реєстрація/Логін" */
+  .auth-button {
     font-size: 12px;
     padding: 6px 10px;
   }

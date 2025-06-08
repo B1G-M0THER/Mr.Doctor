@@ -113,7 +113,7 @@ export const decodeToken = (token) => {
 };
 
 function generateCardNumber() {
-    let cardNumberBase = "767964" + crypto.randomInt(100000000, 999999999); // 6 фіксованих + 9 випадкових
+    let cardNumberBase = "767964" + crypto.randomInt(100000000, 999999999);
     let digits = cardNumberBase.split("").map(Number);
 
     let sum = 0;
