@@ -75,8 +75,6 @@ export const topUpCardBalance = async (req, res) => {
         card = await checkAndHandleCardExpiry(card);
         const currentBalance = parseFloat(card.balance);
 
-        const currentBalance = parseFloat(card.balance);
-
         if (card.status === Cards.expired) {
             return res.status(403).json({ error: "Операція неможлива: термін дії картки закінчився. Поновіть картку." });
         }
