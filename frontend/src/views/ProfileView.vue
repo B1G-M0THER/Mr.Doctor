@@ -59,7 +59,7 @@
         <h3>Переказ коштів з картки</h3>
         <div v-if="activeCard" class="transfer-from-info">
           <p>З картки: ...{{ activeCard.card_number.slice(-4) }}</p>
-          <p>Поточний баланс: {{ activeCard.balance.toFixed(2) }} UAH</p>
+          <p>Поточний баланс: {{ formatCurrency(activeCard.balance) }} UAH</p>
         </div>
         <form @submit.prevent="handleTransferSubmit">
           <div class="form-group">
@@ -117,24 +117,24 @@
         <div v-for="loan in userLoans" :key="loan.id" class="loan-item" :class="`loan-status-${loan.status}`">
           <h3>Кредит #{{ loan.id }} <span class="status-badge">{{ getLoanStatusText(loan.status) }}</span></h3>
           <div class="loan-details">
-            <p><strong>Сума кредиту:</strong> {{ loan.amount.toFixed(2) }} UAH</p>
-            <p><strong>Відсоткова ставка:</strong> {{ loan.interest_rate.toFixed(2) }}% річних</p>
+            <p><strong>Сума кредиту:</strong> {{ formatCurrency(loan.amount) }} UAH</p>
+            <p><strong>Відсоткова ставка:</strong> {{ formatCurrency(loan.interest_rate) }}% річних</p>
             <p><strong>Термін:</strong> {{ loan.term }} місяців</p>
             <p><strong>Дата видачі/заявки:</strong> {{ loan.activated_at ? new Date(loan.activated_at).toLocaleDateString('uk-UA') : (loan.status === 'waiting' || loan.status === 'rejected' ? new Date(loan.created_at).toLocaleDateString('uk-UA') : 'N/A') }}</p>
 
             <template v-if="loan.status === 'active'">
-              <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? loan.monthly_payment_amount.toFixed(2) : 'Розраховується...' }} UAH</p>
+              <p><strong>Щомісячний платіж:</strong> {{ formatCurrency(loan.monthly_payment_amount) }} UAH</p>
               <p><strong>Залишилось сплатити (всього з %):</strong> <span v-if="loan.monthly_payment_amount && loan.term">{{ formatDisplayedDebt((loan.monthly_payment_amount * loan.term) - (loan.paid_amount || 0)) }} UAH</span><span v-else>Розраховується...</span></p>
               <p><strong>Наступний платіж до:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
-              <p><strong>Вже сплачено:</strong> {{ loan.paid_amount ? loan.paid_amount.toFixed(2) : '0.00' }} UAH</p>
+              <p><strong>Вже сплачено:</strong> {{ formatCurrency(loan.paid_amount) }} UAH</p>
               <p v-if="loan.last_payment_date"><strong>Останній платіж:</strong> {{ new Date(loan.last_payment_date).toLocaleDateString('uk-UA') }}</p>
               <button @click="openLoanPaymentModal(loan)" class="action-button pay-loan-button">Здійснити платіж</button>
             </template>
 
             <template v-if="loan.status === 'unpaid'">
               <p class="info-text error"><strong>Кредит прострочено!</strong></p>
-              <p><strong>Залишок основного боргу:</strong> {{ loan.outstanding_principal ? loan.outstanding_principal.toFixed(2) : 'N/A' }} UAH</p>
-              <p><strong>Нарахований штраф:</strong> <strong style="color: #ff6b6b;">{{ loan.accrued_penalty ? loan.accrued_penalty.toFixed(2) : '0.00' }} UAH</strong></p>
+              <p><strong>Залишок основного боргу:</strong> {{ formatCurrency(loan.outstanding_principal) }} UAH</p>
+              <p><strong>Нарахований штраф:</strong> <strong style="color: #ff6b6b;">{{ formatCurrency(loan.accrued_penalty) }} UAH</strong></p>
               <p><strong>Пропущена дата платежу:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
               <button v-if="loan.accrued_penalty && loan.accrued_penalty > 0" @click="openPayPenaltyModal(loan)" class="action-button pay-penalty-button">Сплатити штраф</button>
               <p v-else class="info-text">Зверніться до підтримки для врегулювання заборгованості.</p>
@@ -156,8 +156,8 @@
             <ul>
               <li v-for="payment in loan.LoanPayments.slice(0, 3)" :key="payment.id">
                 {{ new Date(payment.payment_date).toLocaleDateString('uk-UA') }}:
-                <strong>{{ payment.amount_paid.toFixed(2) }} UAH</strong>
-                (Тіло: {{payment.principal_paid.toFixed(2)}}, Відсотки: {{payment.interest_paid.toFixed(2)}})
+                <strong>{{ formatCurrency(payment.amount_paid) }} UAH</strong>
+                (Тіло: {{ formatCurrency(payment.principal_paid) }}, Відсотки: {{ formatCurrency(payment.interest_paid) }})
               </li>
               <li v-if="loan.LoanPayments.length > 3">... та ще {{loan.LoanPayments.length - 3 }} платежів</li>
             </ul>
@@ -170,9 +170,9 @@
         <span class="close-icon" @click="closeLoanPaymentModal">&times;</span>
         <h3>Погашення кредиту #{{ selectedLoanForPayment.id }}</h3>
         <div class="loan-payment-details">
-          <p><strong>Залишок основного боргу:</strong> {{ selectedLoanForPayment.outstanding_principal ? selectedLoanForPayment.outstanding_principal.toFixed(2) : '0.00' }} UAH</p>
-          <p><strong>Сума до сплати:</strong> <strong style="color: #42b983;">{{ paymentData.amountToPayDisplay ? paymentData.amountToPayDisplay.toFixed(2) : 'Розрахунок...' }} UAH</strong></p>
-          <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ activeCard.balance.toFixed(2) }} UAH</p>
+          <p><strong>Залишок основного боргу:</strong> {{ formatCurrency(selectedLoanForPayment.outstanding_principal) }} UAH</p>
+          <p><strong>Сума до сплати:</strong> <strong style="color: #42b983;">{{ formatCurrency(paymentData.amountToPayDisplay) }} UAH</strong></p>
+          <p v-if="activeCard"><strong>Баланс вашої картки:</strong> {{ formatCurrency(activeCard.balance) }} UAH</p>
         </div>
         <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
           <span v-if="activeCard.status === 'expired'">Платіж неможливий: термін дії вашої картки закінчився.</span>
@@ -292,14 +292,14 @@
           <h3>Депозит #{{ deposit.id }} <span class="status-badge">{{ getDepositStatusText(deposit.status) }}</span></h3>
         </template>
         <div class="deposit-details">
-          <p><strong>Сума вкладу:</strong> {{ deposit.amount.toFixed(2) }} UAH</p>
+          <p><strong>Сума вкладу:</strong> {{ formatCurrency(deposit.amount) }} UAH</p>
           <p><strong>Річна ставка:</strong> {{ deposit.interest_rate.toFixed(2) }}%</p>
           <p><strong>Термін:</strong> {{ deposit.term }} місяців</p>
           <p><strong>Дата заявки:</strong> {{ new Date(deposit.created_at).toLocaleDateString('uk-UA') }}</p>
           <p v-if="deposit.approved_at"><strong>Дата активації:</strong> {{ new Date(deposit.approved_at).toLocaleDateString('uk-UA') }}</p>
 
           <template v-if="deposit.status === 'active'">
-            <p><strong>Поточна сума (з відсотками):</strong> {{ deposit.current_value ? deposit.current_value.toFixed(2) : deposit.amount.toFixed(2) }} UAH</p>
+            <p><strong>Поточна сума (з відсотками):</strong> {{ formatCurrency(deposit.current_value) }} UAH</p>
             <p><strong>Нараховано відсотків (до {{ isDepositMatured(deposit) ? new Date(deposit.maturity_date).toLocaleDateString('uk-UA') : 'сьогодні' }}):</strong> {{ deposit.calculated_accrued_interest ? deposit.calculated_accrued_interest.toFixed(2) : '0.00' }} UAH</p>
             <p><strong>Дата завершення:</strong> {{ calculateDepositEndDate(deposit.approved_at, deposit.term) }}</p>
             <button
@@ -337,9 +337,9 @@
       <span class="close-icon" @click="closeWithdrawMaturedModal">&times;</span>
       <h3>Отримання коштів по депозиту #{{ selectedDepositForMaturedWithdrawal.id }}</h3>
       <div class="deposit-withdrawal-details">
-        <p><strong>Сума вкладу:</strong> {{ selectedDepositForMaturedWithdrawal.amount.toFixed(2) }} UAH</p>
-        <p><strong>Нараховані відсотки за весь термін:</strong> {{ selectedDepositForMaturedWithdrawal.calculated_accrued_interest ? selectedDepositForMaturedWithdrawal.calculated_accrued_interest.toFixed(2) : 'Розрахунок...' }} UAH</p>
-        <p><strong>Загальна сума до виплати на картку:</strong> <strong style="color: #42b983;">{{ selectedDepositForMaturedWithdrawal.current_value ? selectedDepositForMaturedWithdrawal.current_value.toFixed(2) : 'Розрахунок...' }} UAH</strong></p>
+        <p><strong>Сума вкладу:</strong> {{ formatCurrency(selectedDepositForMaturedWithdrawal.amount) }} UAH</p>
+        <p><strong>Нараховані відсотки за весь термін:</strong> {{ formatCurrency(selectedDepositForMaturedWithdrawal.calculated_accrued_interest) }} UAH</p>
+        <p><strong>Загальна сума до виплати на картку:</strong> <strong style="color: #42b983;">{{ formatCurrency(selectedDepositForMaturedWithdrawal.current_value) }} UAH</strong></p>
       </div>
       <div v-if="activeCard && activeCard.status !== 'active'" class="error-message" style="margin-bottom: 15px;">
         <span v-if="activeCard.status === 'expired'">Виведення неможливе: термін дії вашої картки закінчився.</span>
@@ -504,6 +504,16 @@ export default {
     await this.fetchSupportedCurrenciesNBU();
   },
   methods: {
+    formatCurrency(value) {
+      if (value === null || typeof value === 'undefined') {
+        return '0.00';
+      }
+      const numberValue = parseFloat(value);
+      if (isNaN(numberValue)) {
+        return '0.00';
+      }
+      return numberValue.toFixed(2);
+    },
 
     openWithdrawMaturedModal(deposit) {
       this.selectedDepositForMaturedWithdrawal = {...deposit};
@@ -577,13 +587,19 @@ export default {
       return date.toLocaleDateString('uk-UA');
     },
 
-    _calculateSimpleInterestForUI(principal, annualRate, startDate, endDate) {
+    calculateSimpleInterestForUI(principal, annualRate, startDate, endDate) {
       if (!startDate || !endDate || new Date(endDate) <= new Date(startDate)) {
         return 0;
       }
+      const principalNumber = parseFloat(principal);
+      const rateNumber = parseFloat(annualRate);
+
+      if (isNaN(principalNumber) || isNaN(rateNumber)) return 0;
+
       const days = Math.floor((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
       if (days <= 0) return 0;
-      const interest = principal * (annualRate / 100 / 365) * days;
+
+      const interest = principalNumber * (rateNumber / 100 / 365) * days;
       return parseFloat(interest.toFixed(2));
     },
 
@@ -593,7 +609,7 @@ export default {
       this.earlyWithdrawalSuccessMessage = null;
 
       if (deposit.status === 'active' && deposit.approved_at) {
-        const initialInterest = this._calculateSimpleInterestForUI(
+        const initialInterest = this.calculateSimpleInterestForUI(
             deposit.amount,
             deposit.interest_rate,
             new Date(deposit.approved_at),
@@ -677,10 +693,11 @@ export default {
 
     formatDisplayedDebt(value) {
       if (value === null || typeof value === 'undefined') return 'N/A';
-      if (Math.abs(value) < 0.005 || Object.is(value, -0)) {
+      const numberValue = parseFloat(value);
+      if (isNaN(numberValue) || Math.abs(numberValue) < 0.005 || Object.is(numberValue, -0)) {
         return (0).toFixed(2);
       }
-      return value.toFixed(2);
+      return numberValue.toFixed(2);
     },
 
     openDeleteLoanModal(loan) {
@@ -874,7 +891,9 @@ export default {
         const headers = {Authorization: `Bearer ${token}`};
         const response = await api.get('/api/cards/mycard', {headers});
         if (response.data && response.data.id) {
-          this.activeCard = response.data;
+          const cardData = response.data;
+          cardData.balance = parseFloat(cardData.balance);
+          this.activeCard = cardData;
         } else {
           this.activeCard = null;
         }

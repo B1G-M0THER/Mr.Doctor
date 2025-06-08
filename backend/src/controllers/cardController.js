@@ -75,6 +75,8 @@ export const topUpCardBalance = async (req, res) => {
         card = await checkAndHandleCardExpiry(card);
         const currentBalance = parseFloat(card.balance);
 
+        const currentBalance = parseFloat(card.balance);
+
         if (card.status === Cards.expired) {
             return res.status(403).json({ error: "Операція неможлива: термін дії картки закінчився. Поновіть картку." });
         }
@@ -91,7 +93,7 @@ export const topUpCardBalance = async (req, res) => {
             return res.status(403).json({ error: `Операція неможлива: статус картки "${card.status}".` });
         }
         if (currentBalance + topUpAmount > MAX_CARD_BALANCE) {
-            return res.status(400).json({error: `Поповнення неможливе. Максимальний баланс картки (${MAX_CARD_BALANCE.toLocaleString('uk-UA')} UAH) буде перевищено.`});
+            return res.status(400).json({ error: `Поповнення неможливе. Максимальний баланс картки (${MAX_CARD_BALANCE.toLocaleString('uk-UA')} UAH) буде перевищено.` });
         }
 
         const updatedCard = await prisma.cards.update({
