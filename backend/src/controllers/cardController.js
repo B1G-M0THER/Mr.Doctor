@@ -5,6 +5,7 @@ import Cards from "../constants/cards.js";
 import { parseDueDate, generateFutureDueDateString } from "../utils/dateUtils.js";
 
 const SECRET_KEY = process.env.SECRET_KEY;
+const MAX_CARD_BALANCE = 1000000000;
 
 export const topUpCardBalance = async (req, res) => {
     let userId;
@@ -58,6 +59,9 @@ export const topUpCardBalance = async (req, res) => {
     if (isNaN(topUpAmount) || topUpAmount <= 0) {
         return res.status(400).json({ error: "Некоректна сума поповнення." });
     }
+    if (topUpAmount > 100000) {
+        return res.status(400).json({ error: "Максимальна сума одного поповнення - 100,000 UAH." });
+    }
 
     try {
         let card = await prisma.cards.findFirst({
@@ -90,6 +94,13 @@ export const topUpCardBalance = async (req, res) => {
             where: { id: card.id },
             data: { balance: { increment: topUpAmount } }
         });
+
+        const currentBalance = parseFloat(card.balance);
+        if (currentBalance + topUpAmount > MAX_CARD_BALANCE) {
+            return res.status(400).json({
+                error: `Поповнення неможливе. Максимальний баланс картки (${MAX_CARD_BALANCE.toLocaleString('uk-UA')} UAH) буде перевищено.`
+            });
+        }
 
         res.status(200).json({
             message: "Баланс картки успішно поповнено.",
