@@ -117,13 +117,13 @@
         <div v-for="loan in userLoans" :key="loan.id" class="loan-item" :class="`loan-status-${loan.status}`">
           <h3>Кредит #{{ loan.id }} <span class="status-badge">{{ getLoanStatusText(loan.status) }}</span></h3>
           <div class="loan-details">
-            <p><strong>Сума кредиту:</strong> {{ loan.amount.toFixed(2) }} UAH</p>
-            <p><strong>Відсоткова ставка:</strong> {{ loan.interest_rate.toFixed(2) }}% річних</p>
+            <p><strong>Сума кредиту:</strong> {{ formatCurrency(loan.amount) }} UAH</p>
+            <p><strong>Відсоткова ставка:</strong> {{ formatCurrency(loan.interest_rate) }}% річних</p>
             <p><strong>Термін:</strong> {{ loan.term }} місяців</p>
             <p><strong>Дата видачі/заявки:</strong> {{ loan.activated_at ? new Date(loan.activated_at).toLocaleDateString('uk-UA') : (loan.status === 'waiting' || loan.status === 'rejected' ? new Date(loan.created_at).toLocaleDateString('uk-UA') : 'N/A') }}</p>
 
             <template v-if="loan.status === 'active'">
-              <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? loan.monthly_payment_amount.toFixed(2) : 'Розраховується...' }} UAH</p>
+              <p><strong>Щомісячний платіж:</strong> {{ loan.monthly_payment_amount ? formatCurrency(loan.monthly_payment_amount) : 'Розраховується...' }} UAH</p>
               <p><strong>Залишилось сплатити (всього з %):</strong> <span v-if="loan.monthly_payment_amount && loan.term">{{ formatDisplayedDebt((loan.monthly_payment_amount * loan.term) - (loan.paid_amount || 0)) }} UAH</span><span v-else>Розраховується...</span></p>
               <p><strong>Наступний платіж до:</strong> {{ loan.next_payment_due_date ? new Date(loan.next_payment_due_date).toLocaleDateString('uk-UA') : 'N/A' }}</p>
               <p><strong>Вже сплачено:</strong> {{ loan.paid_amount ? loan.paid_amount.toFixed(2) : '0.00' }} UAH</p>
@@ -504,6 +504,12 @@ export default {
     await this.fetchSupportedCurrenciesNBU();
   },
   methods: {
+    formatCurrency(value) {
+      if (value === null || typeof value === 'undefined') return '0.00';
+      const numberValue = parseFloat(value);
+      if (isNaN(numberValue)) return '0.00';
+      return numberValue.toFixed(2);
+    },
 
     openWithdrawMaturedModal(deposit) {
       this.selectedDepositForMaturedWithdrawal = {...deposit};
