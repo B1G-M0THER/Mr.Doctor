@@ -133,7 +133,7 @@
         <form @submit.prevent="submitTopUp">
           <div class="form-group">
             <label for="topup-amount">Введіть суму (UAH):</label>
-            <input type="number" id="topup-amount" v-model="topUpAmount" placeholder="Наприклад, 500" step="0.01" min="1" max="100000" required />
+            <input type="number" id="topup-amount" v-model="topUpAmount" placeholder="Наприклад, 500" step="0.01" min="1" required />
           </div>
           <div class="form-group">
             <button type="submit" class="submit-button">Поповнити</button>
