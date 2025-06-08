@@ -46,8 +46,8 @@ export const applyForDeposit = async (req, res) => {
         if (userCard.status !== CardStatuses.active) {
             return res.status(403).json({ error: `Неможливо створити депозит: ваша картка не активна (статус: ${userCard.status}).` });
         }
-        if (userCard.balance < depositAmount) {
-            return res.status(400).json({ error: `Недостатньо коштів на картці для відкриття депозиту. Потрібно: ${depositAmount.toFixed(2)} UAH.` });
+        if (parseFloat(userCard.balance) < depositAmount) {
+            return res.status(400).json({ error: `Недостатньо коштів на картці для відкриття депозиту. Потрібно: ${depositAmount} UAH.` });
         }
 
         const newDepositApplication = await prisma.deposits.create({
@@ -109,7 +109,7 @@ export const getUserDeposits = async (req, res) => {
             }
             return {
                 ...dep,
-                current_value: parseFloat(current_value.toFixed(2)),
+                current_value: parseFloat(current_value),
                 calculated_accrued_interest: parseFloat(calculated_accrued_interest.toFixed(2))
             };
         });
@@ -159,11 +159,12 @@ export const requestEarlyWithdrawal = async (req, res) => {
 
 
         const now = new Date();
+        const principalAmount = parseFloat(deposit.amount);
         const accruedInterest = calculateSimpleInterest(deposit.amount, deposit.interest_rate, new Date(deposit.approved_at), now);
         const penaltyRate = deposit.early_withdrawal_penalty_percent || EARLY_WITHDRAWAL_PENALTY_PERCENT;
         const penaltyAmount = parseFloat((accruedInterest * (penaltyRate / 100)).toFixed(2));
         const interestAfterPenalty = parseFloat((accruedInterest - penaltyAmount).toFixed(2));
-        const totalPayout = parseFloat((deposit.amount + interestAfterPenalty).toFixed(2));
+        const totalPayout = principalAmount + interestAfterPenalty;
 
         await prisma.$transaction(async (tx) => {
             await tx.cards.update({
@@ -230,8 +231,9 @@ export const withdrawMaturedDeposit = async (req, res) => {
         const approvalDate = new Date(deposit.approved_at);
         const maturityDate = new Date(deposit.maturity_date);
 
+        const principalAmount = parseFloat(deposit.amount);
         const finalAccruedInterest = calculateSimpleInterest(deposit.amount, deposit.interest_rate, approvalDate, maturityDate);
-        const totalPayout = parseFloat((deposit.amount + finalAccruedInterest).toFixed(2));
+        const totalPayout = principalAmount + finalAccruedInterest;
 
         await prisma.$transaction(async (tx) => {
             await tx.cards.update({

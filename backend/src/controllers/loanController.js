@@ -15,11 +15,14 @@ async function checkAndApplyPenalties(loan, dbClient = prisma) {
     let updatedLoanData = {};
     let needsUpdate = false;
 
+    const monthlyPaymentAmount = parseFloat(loan.monthly_payment_amount);
+    const accruedPenalty = parseFloat(loan.accrued_penalty || 0);
+
     if (loan.status === Loans.active && loan.next_payment_due_date && now > new Date(loan.next_payment_due_date)) {
         updatedLoanData.status = Loans.unpaid;
 
-        const initialPenalty = parseFloat((loan.monthly_payment_amount * PENALTY_RATE).toFixed(2));
-        updatedLoanData.accrued_penalty = parseFloat(((loan.accrued_penalty || 0) + initialPenalty).toFixed(2));
+        const initialPenalty = monthlyPaymentAmount * PENALTY_RATE;
+        updatedLoanData.accrued_penalty = accruedPenalty + initialPenalty;
         updatedLoanData.last_penalty_calculation_date = now;
         needsUpdate = true;
         console.log(`Loan #${loan.id} became unpaid. Initial penalty: ${initialPenalty}`);
@@ -38,9 +41,9 @@ async function checkAndApplyPenalties(loan, dbClient = prisma) {
         }
 
         if (weeksOverdue > 0) {
-            const weeklyPenalty = parseFloat((loan.monthly_payment_amount * PENALTY_RATE).toFixed(2));
-            const totalNewPenalty = parseFloat((weeklyPenalty * weeksOverdue).toFixed(2));
-            updatedLoanData.accrued_penalty = parseFloat(((loan.accrued_penalty || 0) + totalNewPenalty).toFixed(2));
+            const weeklyPenalty = monthlyPaymentAmount * PENALTY_RATE;
+            const totalNewPenalty = weeklyPenalty * weeksOverdue;
+            updatedLoanData.accrued_penalty = accruedPenalty + totalNewPenalty;
             const timeDiff = now.getTime() - lastCalcDate.getTime();
             if (timeDiff >= oneWeekInMilliseconds) {
                 updatedLoanData.last_penalty_calculation_date = now;
@@ -140,19 +143,19 @@ export const getUserLoans = async (req, res) => {
 
         const formattedLoans = updatedUserLoans.map(loan => ({
             ...loan,
-            amount: parseFloat(loan.amount.toFixed(2)),
+            amount: parseFloat(loan.amount),
             interest_rate: parseFloat(loan.interest_rate.toFixed(2)),
-            monthly_payment_amount: loan.monthly_payment_amount ? parseFloat(loan.monthly_payment_amount.toFixed(2)) : null,
-            outstanding_principal: loan.outstanding_principal ? parseFloat(loan.outstanding_principal.toFixed(2)) : null,
-            paid_amount: loan.paid_amount ? parseFloat(loan.paid_amount.toFixed(2)) : null,
-            accrued_penalty: loan.accrued_penalty ? parseFloat(loan.accrued_penalty.toFixed(2)) : 0, // Додано
+            monthly_payment_amount: loan.monthly_payment_amount ? parseFloat(loan.monthly_payment_amount) : null,
+            outstanding_principal: loan.outstanding_principal ? parseFloat(loan.outstanding_principal) : null,
+            paid_amount: loan.paid_amount ? parseFloat(loan.paid_amount) : null,
+            accrued_penalty: loan.accrued_penalty ? parseFloat(loan.accrued_penalty) : 0,
             LoanPayments: loan.LoanPayments.map(payment => ({
 
                 ...payment,
-                amount_paid: parseFloat(payment.amount_paid.toFixed(2)),
-                principal_paid: parseFloat(payment.principal_paid.toFixed(2)),
-                interest_paid: parseFloat(payment.interest_paid.toFixed(2)),
-                outstanding_principal_after_payment: parseFloat(payment.outstanding_principal_after_payment.toFixed(2)),
+                amount_paid: parseFloat(payment.amount_paid),
+                principal_paid: parseFloat(payment.principal_paid),
+                interest_paid: parseFloat(payment.interest_paid),
+                outstanding_principal_after_payment: parseFloat(payment.outstanding_principal_after_payment),
             }))
         }));
         res.status(200).json(formattedLoans);
