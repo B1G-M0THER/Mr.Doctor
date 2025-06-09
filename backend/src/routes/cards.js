@@ -1,12 +1,7 @@
 import express from 'express';
 import prisma from '../config/prisma.js';
 import jwt from 'jsonwebtoken';
-import {
-    createCard,
-    topUpCardBalance,
-    requestCardRenewal,
-    checkAndHandleCardExpiry
-} from "../controllers/cardController.js";
+import { createCard, topUpCardBalance, requestCardRenewal, checkAndHandleCardExpiry} from "../controllers/cardController.js";
 
 const router = express.Router();
 const SECRET_KEY = process.env.SECRET_KEY;

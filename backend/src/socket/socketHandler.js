@@ -102,14 +102,8 @@ export default function initializeSocket(io) {
 
                     const usersList = await prisma.users.findMany({
                         where: whereCondition,
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true
-                        },
-                        orderBy: {
-                            name: 'asc'
-                        }
+                        select: { id: true, name: true, email: true},
+                        orderBy: { name: 'asc' }
                     });
 
                     console.log(`[adminGetChatList] Found ${usersList.length} users matching criteria.`);
