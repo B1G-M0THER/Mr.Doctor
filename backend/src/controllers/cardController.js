@@ -73,7 +73,6 @@ export const topUpCardBalance = async (req, res) => {
         }
 
         card = await checkAndHandleCardExpiry(card);
-
         const currentBalance = parseFloat(card.balance);
 
         if (card.status === Cards.expired) {
@@ -190,7 +189,7 @@ export const createCard = async (req, res) => {
 };
 
 export async function checkAndHandleCardExpiry(card) {
-    if (!card) { // Додамо перевірку, хоча /mycard вже це робить
+    if (!card) {
         console.log('[checkAndHandleCardExpiry] Card object is null or undefined.');
         return card;
     }
