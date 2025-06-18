@@ -362,10 +362,6 @@ export default {
 
         updateAuthStatus();
 
-        if (role.value !== 'ADMIN') {
-          chatStore.connectSocket();
-        }
-
         chatStore.connectSocket();
         chatStore.setupListeners();
         closeModal();
@@ -380,9 +376,6 @@ export default {
     };
 
     const logout = () => {
-      if(isLoggedIn.value && role.value !== 'ADMIN'){
-        chatStore.disconnectSocket();
-      }
 
       chatStore.disconnectSocket();
 
@@ -404,7 +397,7 @@ export default {
 
     onMounted(() => {
       updateAuthStatus();
-      if (isLoggedIn.value && role.value !== 'ADMIN') {
+      if (isLoggedIn.value) {
         chatStore.connectSocket();
       }
     });
